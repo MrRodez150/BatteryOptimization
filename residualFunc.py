@@ -22,10 +22,10 @@ class residualFunction():
 
         #Section equations
 
-        self.a_eq = peq
-        self.p_eq = neq
-        self.n_eq = oeq
-        self.o_eq = aeq
+        self.a_eq = aeq
+        self.p_eq = peq
+        self.n_eq = neq
+        self.o_eq = oeq
         self.z_eq = zeq
 
         #Starting points and spaces needed per variable and section

@@ -1,6 +1,8 @@
 import jax.numpy as jnp
-#from functools import partial
-#from jax import jit
+import numpy as np
+from functools import partial
+from jax import jit
+from jax.lax import reshape
 from scipy.sparse import csr_matrix, kron, identity
 from scipy.sparse.linalg import spsolve
 
@@ -17,7 +19,7 @@ class electrodeEquations:
         self.brugg = constants.brugg
         self.C = constants.C
         self.cmax1 = constants.c_s_max
-        self.cmax = constants.c_s_max*jnp.ones([div_x_elec,1])
+        self.cmax = constants.c_s_max*jnp.ones([div_x_elec])
         self.cavg = constants.c_s_avg
         self.Ds = constants.Ds
         self.ED = constants.ED
@@ -92,7 +94,7 @@ class electrodeEquations:
 
     # Electrolyte concentration:
 
-    #@partial(jit, static_argnums=(0,))
+    @partial(jit, static_argnums=(0,))
     def electConc(self, ce_0, ce, ce_1, T_0, T, T_1, j, ce_past):
         
         ce_mid0 = (ce_0+ce)/2 
@@ -105,7 +107,9 @@ class electrodeEquations:
         
         ans = (ce-ce_past) - (self.delta_t/self.vareps)*( ( Deff_1*(ce_1 - ce)/self.delta_x - Deff_0*(ce - ce_0)/self.delta_x )/self.delta_x + self.a*(1-t_plus)*j ) 
 
-        return ans.reshape()
+        ans = ans.reshape()
+
+        return ans
 
     def eConc_po_bc(self,ce_p_0,ce_p_1,T_p_0,T_p_1,ce_o_0,ce_o_1,T_o_0,T_o_1):
         
@@ -201,6 +205,8 @@ class electrodeEquations:
         cs = cs_1 - gamma_c*j/sDiffCoeff(self.Ds, self.ED, T)
         ans = ((T - T_past) - (self.delta_t/(self.rho*self.C))*(self.lam*(T_0 - 2*T + T_1)/self.delta_x**2
         + self.ohmHeat(phis_0, phis_1, phie_0, phie_1, ce_0, ce, ce_1, T) + self.rxnHeat(j,eta) + self.revHeat(j,T,cs) ))
+        #ans =
+
         return ans.reshape()
     
     def temp_ap_bc(self,T_a_0, T_a_1, T_p_0, T_p_1): 
@@ -227,10 +233,15 @@ class electrodeEquations:
         keff = kRateCoeff(self.k,self.Ek,T)
         var = ((0.5*F)/(R*T))*eta
         term2 = (jnp.exp(var)-jnp.exp(-var))/2
+        
+        ans =j - 2*keff*jnp.sqrt(ce*(self.cmax - cs)*cs)*term2
+        #ans = j - 2*keff*jnp.sqrt(ce - cs)*term2
 
-        ans = j - 2*keff*jnp.sqrt(ce*(self.cmax - cs)*cs)*term2
+        print(ans.shape)
 
-        return ans.reshape()
+        ans.reshape()
+
+        return ans
 
     # Overpotential:
 
@@ -238,10 +249,10 @@ class electrodeEquations:
 
         theta = cs/self.cmax
 
-        if (self.type == "p"):
+        if (self.tipo == "p"):
             ans = (-4.656 + 88.669*(theta**2) - 401.119*(theta**4) + 342.909*(theta**6) -  462.471*(theta**8) + 433.434*(theta**10))/\
             (-1 + 18.933*(theta**2) - 79.532*(theta**4) + 37.311*(theta**6) - 73.083*(theta**8) + 95.96*(theta**10))    
-        elif(self.type == "n"):
+        elif(self.tipo == "n"):
             ans = 0.7222 + 0.1387*theta + 0.029*theta**(0.5) - 0.0172/theta + 0.0019/(theta**1.5) + 0.2808*jnp.exp(0.9 - 15*theta) - 0.7984*jnp.exp(0.4465*theta - 0.4108)
         else:
             raise ValueError("Undefined type value for the electrode")
@@ -251,11 +262,11 @@ class electrodeEquations:
         
         theta = cs/self.cmax
         
-        if (self.type == "p"):
+        if (self.tipo == "p"):
             ans = -0.001*( (0.199521039 - 0.92837822*theta + 1.364550689000003*theta**2 - 0.6115448939999998*theta**3)/\
             (1 - 5.661479886999997*theta + 11.47636191*theta**2 - 9.82431213599998*theta**3 + \
              3.046755063*theta**4))
-        elif (self.type == "n"):
+        elif (self.tipo == "n"):
         # typo for + 38379.18127*theta**7 
             ans = 0.001*(0.005269056 + 3.299265709*theta - 91.79325798*theta**2 + \
              1004.911008*theta**3 - 5812.278127*theta**4 + \
@@ -275,6 +286,7 @@ class electrodeEquations:
     def overPotential(self, eta, phis, phie, T, j, cs1, gamma_c):
         cs = cs1 - gamma_c*j/sDiffCoeff(self.Ds, self.ED, T)
         ans = eta - phis + phie + self.openCircuitPoten(cs,T)
+        #ans = 
         return ans.reshape()
     
     def openCircPot_start(self):

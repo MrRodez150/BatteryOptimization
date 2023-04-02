@@ -328,7 +328,7 @@ def build_bc_n(J, bc, ad, pd, od, nd):
 
     row_phis = jnp.array([11, 5, 15, 11])
     col_phis = jnp.array([n0 + 1, n0 + 7, n0 + 4 + 6*(nd-1) + 3, n0 + 4 + 6*nd + 1])
-    J = J.at[row_phis, col_phis].set(['phis'])
+    J = J.at[row_phis, col_phis].set(bc['phis'])
 
     row_T = jnp.array([18,15,11, 5, 15, 11, 10, 9])
     col_T = jnp.array([sep0 + 3*od + 2, sep0 + 3*od + 5, n0 + 3, n0 + 9,

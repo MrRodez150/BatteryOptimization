@@ -1,3 +1,5 @@
+from jax.config import config
+config.update('jax_enable_x64', True)
 from mainAux import get_sections_data, get_battery_equations
 from solver import p2d_fn_solver
 

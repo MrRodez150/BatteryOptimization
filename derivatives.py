@@ -115,7 +115,7 @@ def partials(aeq, peq, oeq, neq, zeq):
 
         ('dT_z_bc1', dT_z_bc1),
         ('dT_z', dT_z),
-        ('dT_z_bc1', dT_z_bc2)
+        ('dT_z_bc2', dT_z_bc2)
     ])
 
     return HashableDict(d)
