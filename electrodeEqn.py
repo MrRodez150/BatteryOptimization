@@ -18,8 +18,7 @@ class electrodeEquations:
         self.a = constants.a
         self.brugg = constants.brugg
         self.C = constants.C
-        self.cmax1 = constants.c_s_max
-        self.cmax = constants.c_s_max*jnp.ones([div_x_elec])
+        self.cmax = constants.c_s_max
         self.cavg = constants.c_s_avg
         self.Ds = constants.Ds
         self.ED = constants.ED
@@ -205,7 +204,6 @@ class electrodeEquations:
         cs = cs_1 - gamma_c*j/sDiffCoeff(self.Ds, self.ED, T)
         ans = ((T - T_past) - (self.delta_t/(self.rho*self.C))*(self.lam*(T_0 - 2*T + T_1)/self.delta_x**2
         + self.ohmHeat(phis_0, phis_1, phie_0, phie_1, ce_0, ce, ce_1, T) + self.rxnHeat(j,eta) + self.revHeat(j,T,cs) ))
-        #ans =
 
         return ans.reshape()
     
@@ -234,10 +232,7 @@ class electrodeEquations:
         var = ((0.5*F)/(R*T))*eta
         term2 = (jnp.exp(var)-jnp.exp(-var))/2
         
-        ans =j - 2*keff*jnp.sqrt(ce*(self.cmax - cs)*cs)*term2
-        #ans = j - 2*keff*jnp.sqrt(ce - cs)*term2
-
-        print(ans.shape)
+        ans = j - 2*keff*jnp.sqrt(ce*(self.cmax - cs)*cs)*term2
 
         ans.reshape()
 
@@ -286,12 +281,12 @@ class electrodeEquations:
     def overPotential(self, eta, phis, phie, T, j, cs1, gamma_c):
         cs = cs1 - gamma_c*j/sDiffCoeff(self.Ds, self.ED, T)
         ans = eta - phis + phie + self.openCircuitPoten(cs,T)
-        #ans = 
+        
         return ans.reshape()
     
     def openCircPot_start(self):
 
-        theta = self.cavg/self.cmax1
+        theta = self.cavg/self.cmax
 
         if (self.tipo == "p"):
             ans = (-4.656 + 88.669*(theta**2) - 401.119*(theta**4) + 342.909*(theta**6) -  462.471*(theta**8) + 433.434*(theta**10))/\
