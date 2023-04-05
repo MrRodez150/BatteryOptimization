@@ -9,8 +9,8 @@ from scipy.sparse import csc_matrix
 from scipy.linalg import solve_banded
 import numpy as np
 
-from config import div_x_elec, div_x_sep, div_x_cc, div_r, div_t, tol
-from globalValues import T_ref
+from config import div_x_elec, div_x_sep, div_x_cc, div_r, delta_t, tol, maxit
+from globalValues import T_ref, cutOff
 from coeffs import sDiffCoeff
 from mainAux import reorder_tot, unpack_vars
 from derivatives import partials
@@ -32,7 +32,6 @@ def reorder_vec(v, idx):
     return v[idx]
 
 def newton(fn, jac_fn, Umat, cs_pe1, cs_ne1, gamma_p, gamma_n, idx, re_idx):
-    maxit = 10
     res = 100
     fail = False
     Uold = Umat
@@ -51,7 +50,7 @@ def newton(fn, jac_fn, Umat, cs_pe1, cs_ne1, gamma_p, gamma_n, idx, re_idx):
 
     count = 1
 
-    while (count < maxit and res > tol):
+    while (count <= maxit and res > tol):
 
         J = jac_fn(Umat, Uold, cs_pe1, cs_ne1).block_until_ready()
         y = fn(Umat, Uold, cs_pe1, cs_ne1, gamma_p, gamma_n).block_until_ready()
@@ -79,6 +78,8 @@ def newton(fn, jac_fn, Umat, cs_pe1, cs_ne1, gamma_p, gamma_n, idx, re_idx):
     elif res > tol:
         fail = True
         print('Newton fail: no convergence')
+        print(res,' greater than tolerance: ',tol)
+        print('Iterations made: ',count)
     else:
         fail = False
     
@@ -123,9 +124,6 @@ def p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell):
         val = vmap(fn, (0, None, 0), 1)(j, temp, Deff_vec)
         return val
 
-    #@functools.partial(jax.jit, static_argnums=(2, 3,))
-    #def combine_c(cII, cI_vec, M,N):
-    #    return jnp.reshape(cII, [M * (N + 2)], order="F") + cI_vec
 
 
 
@@ -133,28 +131,28 @@ def p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell):
 
 
 
-
-    #Create empty matrix
+    #Create initial conditions matrix
 
     Umat = jnp.hstack(
         [
-
+            #ce
             1000 + jnp.zeros(pd + 2),
             1000 + jnp.zeros(od + 2),
             1000 + jnp.zeros(nd + 2),
-
+            #j
             jnp.zeros(pd),
             jnp.zeros(nd),
+            #eta
             jnp.zeros(pd),
             jnp.zeros(nd),
-
+            #phis
             jnp.zeros(pd + 2) + p_eqn.openCircPot_start(),
             jnp.zeros(nd + 2) + n_eqn.openCircPot_start(),
-
+            #phie
             jnp.zeros(pd + 2) + 0,
             jnp.zeros(od + 2) + 0,
             jnp.zeros(nd + 2) + 0,
-
+            #T
             T_ref + jnp.zeros(ad + 2),
             T_ref + jnp.zeros(pd + 2),
             T_ref + jnp.zeros(od + 2),
@@ -172,8 +170,6 @@ def p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell):
 
     jac_fn = compute_jac(cs_p_g_vec,cs_n_g_vec,part_fn,Icell)
 
-        # initial conditions
-
     # cs solve
 
     cs_p_lu = splu(csc_matrix(p_eqn.A))
@@ -184,7 +180,7 @@ def p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell):
     cs_n_temp = n_eqn.temp_sol
     cmat_n = n_eqn.cavg * jnp.ones(nd * (ndr + 2))
 
-    # others
+    # order and reorder indexes
 
     idx_tot = reorder_tot()
     re_idx = jnp.argsort(idx_tot)
@@ -192,10 +188,15 @@ def p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell):
     # solve for each time interval
 
     voltages = []
-    temps = []
+    tempMax = []
     flux = []
+    overPots = []
+    tempN = []
+    times = []
+    t = 0
 
-    for i in range(0, int(div_t)+1):
+    while True:
+#    for i in range(0, int(div_t)+1):
         
         cmat_rhs_p = c_p_mat_format(cmat_p).block_until_ready()
         cmat_rhs_n = c_n_mat_format(cmat_n).block_until_ready()
@@ -207,17 +208,8 @@ def p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell):
         cs_ne1 = (cI_ne_vec[ndr:nd * (ndr + 2):ndr + 2] + cI_ne_vec[ndr + 1:nd * (ndr + 2):ndr + 2]) / 2
         
         Umat, fail = newton(fn, jac_fn, Umat, cs_pe1, cs_ne1, cs_p_g_vec, cs_n_g_vec, idx_tot, re_idx)
-
-        if (fail):
-            print('Premature end of run\n')
-            print("timestep:", i)
-            break
-
-        else:
-#            print("timestep:", i)
-            pass
         
-        Tvec, Tvec_p, Tvec_n, phis_p, phis_n, jvec_p, jvec_n = unpack_vars(Umat)
+        Tvec, Tvec_p, Tvec_n, phis_p, phis_n, jvec_p, jvec_n, etavec_n = unpack_vars(Umat)
 
         cII_p = form_c2_p_jit(cs_p_temp, jvec_p, Tvec_p).block_until_ready()
         cII_n = form_c2_n_jit(cs_n_temp, jvec_n, Tvec_n).block_until_ready()
@@ -225,15 +217,30 @@ def p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell):
         cmat_p = jnp.reshape(cII_p, [pd * (pdr + 2)], order="F").block_until_ready() + cI_pe_vec
         cmat_n = jnp.reshape(cII_n, [nd * (ndr + 2)], order="F").block_until_ready() + cI_ne_vec
 
-        voltages.append(phis_p[1] - phis_n[nd])
-        temps.append(jnp.max(Tvec))
-        flux.append(jvec_n[1])
+        v = float(phis_p[1] - phis_n[nd])
+        voltages.append(v)
+        tempMax.append(float(jnp.max(Tvec)))
+        flux.append(float(jvec_n[1]))
+        overPots.append(float(etavec_n[1]))
+        tempN.append(float(Tvec_n[1]))
+        times.append(t)
+        t += delta_t
+
+        if (v <= cutOff):
+            break
+
+        if (fail):
+            print('Premature end of run')
+            print("timestep:", len(times),'\n')
+            break
+
+
 
 
     end_t = timeit.default_timer()
 
-    time = start_t - end_t
+    sim_time = end_t - start_t
 
-    print("Done reordered simulation\n")
+    print("Simulation done\n")
 
-    return Umat, voltages, temps, flux, time, fail
+    return np.array(voltages), np.array(tempMax), np.array(flux), np.array(overPots), np.array(tempN), np.array(times), sim_time, fail

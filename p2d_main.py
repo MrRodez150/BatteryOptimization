@@ -2,11 +2,13 @@ from jax.config import config
 config.update('jax_enable_x64', True)
 from mainAux import get_sections_data, get_battery_equations
 from solver import p2d_fn_solver
+from objFunctions import objectiveFunctions
+from plotter import plotTimeChange
 
 
 def p2d_simulate(x):
 
-    Icell = x["Icell"]
+    Icell = -x["Icell"]
     la = x["la"]
     lp = x["lp"]
     lo = x["lo"]
@@ -30,9 +32,18 @@ def p2d_simulate(x):
 
     p_eqn, n_eqn, o_eqn, a_eqn, z_eqn = get_battery_equations(a_data, p_data, o_data, n_data, z_data, Icell)
 
-    _, voltage, temp, flux, time, fail = p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell)
+    voltage, temp, flux, ovpot, temp_n, times, time, fail = p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell)
 
-    return voltage, temp, flux, time, fail
+    print(voltage)
+    print(temp)
+    print(flux)
+    print(ovpot)
+    print(temp_n)
+    print(times)
+
+    objFun = objectiveFunctions(a_data, p_data, o_data, n_data, z_data, e_data, Icell, Lh, Np, Ns, Rcell, L, voltage, temp, flux, ovpot, temp_n, times)
+    
+    return objFun, time, fail
 
 
 
@@ -56,9 +67,11 @@ vars = {
     "ve_n": 0.1,
 }
 
-voltage, temp, flux, time, fail = p2d_simulate(vars)
+oFn, sim_time, fail = p2d_simulate(vars)
 
-if fail:
-    print("No se logró realizar la simulación")
-else:
-    print("Total time for simulation: ", time)
+#v_fig = plotTimeChange(times, voltage, 'voltage [V]')
+#v_fig.show()
+
+print(oFn)
+
+print("Total time for simulation: ", sim_time)

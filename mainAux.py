@@ -102,13 +102,15 @@ def unpack_vars(U):
 
     Tvec = dynamic_slice(U, [t_a0], [t_z0+zd+2 - t_a0])
 
-    phis_pe = dynamic_slice(U, [phis_p0], [phis_n0 - phis_p0])
-    phis_ne = dynamic_slice(U, [phis_n0], [phis_n0 + nd + 2 - phis_n0])
+    phis_p = dynamic_slice(U, [phis_p0], [phis_n0 - phis_p0])
+    phis_n = dynamic_slice(U, [phis_n0], [phis_n0 + nd + 2 - phis_n0])
 
-    j_pe = dynamic_slice(U, [j_p0], [j_n0 - j_p0])
-    j_ne = dynamic_slice(U, [j_n0], [j_n0 + nd - j_n0])
+    j_p = dynamic_slice(U,[j_p0],[j_n0 - j_p0])
+    j_n = dynamic_slice(U, [j_n0], [j_n0 + nd - j_n0])
 
-    return Tvec, Tvec_p, Tvec_n, phis_pe, phis_ne, j_pe, j_ne
+    eta_n =dynamic_slice(U,[eta_n0],[eta_n0+nd - eta_n0])
+
+    return Tvec, Tvec_p, Tvec_n, phis_p, phis_n, j_p, j_n, eta_n
 
 
 

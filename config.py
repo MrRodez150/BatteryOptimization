@@ -13,9 +13,11 @@ global div_t
 global delta_t
 
 sim_time = 3600;
-div_t = 30;
-delta_t = sim_time/div_t;
+delta_t = 5;
+div_t = sim_time/delta_t;
 
 global tol
+global maxit
 
 tol=1e-7;
+maxit=10;
