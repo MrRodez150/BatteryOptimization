@@ -1,11 +1,11 @@
 from scipy import integrate
 import numpy as np
 
-from auxiliaryExp import area, mass
+from auxiliaryExp import area, mass, internalResistance
 from globalValues import F,R
 
-def specificEnergy(v,i,t,M,A):
-    Es = A*integrate.trapezoid(i*v,t)/M
+def specificEnergy(v,i,t,M,A,Rx):
+    Es = A*integrate.trapezoid(i*(v-(Rx*i)),t)/M
     return Es
 
 def batteryPrice(data_a,data_p,data_o,data_n,data_z,data_e,Ns,Np,A,L):
@@ -46,13 +46,16 @@ def capFade(j,eta,T,mu,rho):
     SEI_growth = i0*mu/(rho*F)
     return np.mean(SEI_growth)
 
-def objectiveFunctions(data_a,data_p,data_o,data_n,data_z,data_e,Icell,Lh,Np,Ns,Rcell,L,volt,Temps,flux,etas,Tn,times):
+def objectiveFunctions(data_a,data_p,data_o,data_n,data_z,data_e,
+                       Icell,Lh,Np,Ns,Rcell,L,
+                       volt,Temps,flux,etas,Tn,times):
 
     Lt = L + data_a.l + data_z.l
     A = area(Lh,Lt,Rcell)
     M = mass(data_a,data_p,data_o,data_n,data_z,data_e,L)
+    Rx = internalResistance(data_a,data_p,data_n,data_z)
 
-    Es = specificEnergy(volt,-Icell,times,M,A)
+    Es = specificEnergy(volt,-Icell,times,M,A,Rx)
     SEIg = capFade(flux,etas,Tn,data_n.mu,data_n.rho)
     Tavg = maxTempAvg(Temps)
     P = batteryPrice(data_a,data_p,data_o,data_n,data_z,data_e,Ns,Np,A,L)

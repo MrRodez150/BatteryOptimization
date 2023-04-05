@@ -34,6 +34,7 @@ def p2d_simulate(x):
 
     voltage, temp, flux, ovpot, temp_n, times, time, fail = p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell)
 
+    """
     print(voltage)
     print(temp)
     print(flux)
@@ -41,7 +42,13 @@ def p2d_simulate(x):
     print(temp_n)
     print(times)
 
-    objFun = objectiveFunctions(a_data, p_data, o_data, n_data, z_data, e_data, Icell, Lh, Np, Ns, Rcell, L, voltage, temp, flux, ovpot, temp_n, times)
+    v_fig = plotTimeChange(times, voltage, 'voltage [V]')
+    v_fig.show()
+    """
+
+    objFun = objectiveFunctions(a_data, p_data, o_data, n_data, z_data, e_data, 
+                                Icell, Lh, Np, Ns, Rcell, L, 
+                                voltage, temp, flux, ovpot, temp_n, times)
     
     return objFun, time, fail
 
@@ -68,9 +75,6 @@ vars = {
 }
 
 oFn, sim_time, fail = p2d_simulate(vars)
-
-#v_fig = plotTimeChange(times, voltage, 'voltage [V]')
-#v_fig.show()
 
 print(oFn)
 

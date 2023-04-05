@@ -18,7 +18,7 @@ def internalResistance(dat_a, dat_p, dat_n, dat_z):
     sig_n = dat_n.sigma
     lz = dat_z.l
     sig_z = dat_z.sigma
-    return 1/(la,sig_a) + 1/(lp,sig_p) + 1/(ln,sig_n) + 1/(lz,sig_z)
+    return 1/(la*sig_a + lp*sig_p + ln*sig_n + lz*sig_z)
 
 def turns(Rcell,Lt):
     return 2*math.pi*Rcell/Lt

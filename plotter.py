@@ -12,7 +12,6 @@ def plot_pon(p, o, n, lp, lo, ln, y_lbl:str):
     plt.plot(jnp.hstack([xp,xo,xn]),jnp.hstack([p, o, n]))
     plt.xlabel('x axis [m]')
     plt.ylabel(y_lbl)
-    plt.show()
 
     return fig
 
@@ -27,7 +26,6 @@ def plot_aponz(a, p, o, n, z, la, lp, lo, ln, lz, y_lbl:str):
     plt.plot(jnp.hstack([xa,xp,xo,xn,xz]),jnp.hstack([a, p, o, n, z]))
     plt.xlabel('x axis [m]')
     plt.ylabel(y_lbl)
-    plt.show()
 
     return fig
     
@@ -38,7 +36,6 @@ def plot_elec(y, lx, y_lbl):
     plt.plot(x, y)
     plt.xlabel('x axis [m]')
     plt.ylabel(y_lbl)
-    plt.show()
 
     return fig
 
@@ -48,6 +45,5 @@ def plotTimeChange(t, y, y_lbl:str):
     plt.plot(t,y)
     plt.xlabel('Time [s]')
     plt.ylabel(y_lbl)
-    plt.show()
 
     return fig
