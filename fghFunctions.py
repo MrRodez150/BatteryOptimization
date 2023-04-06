@@ -8,33 +8,15 @@ def specificEnergy(v,i,t,M,A,Rx):
     Es = A*integrate.trapezoid(i*(v-(Rx*i)),t)/M
     return Es
 
+def perho(data):
+    return data.p*data.rho*data.eps
+
+def lprho(data):
+    return data.l*data.p*data.rho
+
 def batteryPrice(data_a,data_p,data_o,data_n,data_z,data_e,Ns,Np,A,L):
-    p_p = data_p.p
-    rho_p = data_p.rho
-    eps_p = data_p.eps
-
-    p_o   = data_o.p
-    rho_o = data_o.rho
-    eps_o = data_o.eps
-
-    p_n   = data_n.p
-    rho_n = data_n.rho
-    eps_n = data_n.eps
-
-    p_e   = data_e.p
-    rho_e = data_e.rho
-    eps_e = data_e.eps
-
-    la    = data_a.l
-    p_a   = data_a.p
-    rho_a = data_a.rho
-
-    lz    = data_z.l
-    p_z   = data_z.p
-    rho_z = data_z.rho
-    
-    return Ns*Np*A*(L*(p_p*rho_p*eps_p + p_o*rho_o*eps_o + p_n*rho_n*eps_n + p_e*rho_e*eps_e) 
-                    + la*p_a*rho_a + lz*p_z*rho_z)
+    return Ns*Np*A*(L*(perho(data_p) + perho(data_o) + perho(data_n) + perho(data_e)) 
+                    + lprho(data_a) + lprho(data_z))
 
 def maxTempAvg(T):
     return np.mean(T)
@@ -47,11 +29,9 @@ def capFade(j,eta,T,mu,rho):
     return np.mean(SEI_growth)
 
 def objectiveFunctions(data_a,data_p,data_o,data_n,data_z,data_e,
-                       Icell,Lh,Np,Ns,Rcell,L,
+                       Icell,Np,Ns,L,A,
                        volt,Temps,flux,etas,Tn,times):
 
-    Lt = L + data_a.l + data_z.l
-    A = area(Lh,Lt,Rcell)
     M = mass(data_a,data_p,data_o,data_n,data_z,data_e,L)
     Rx = internalResistance(data_a,data_p,data_n,data_z)
 
@@ -61,3 +41,18 @@ def objectiveFunctions(data_a,data_p,data_o,data_n,data_z,data_e,
     P = batteryPrice(data_a,data_p,data_o,data_n,data_z,data_e,Ns,Np,A,L)
 
     return [Es, SEIg, Tavg, P]
+
+def ineqConstraintFunctions(Vpack,Ns,voltages):
+    Vcell = np.mean(voltages)
+
+    V_upper = Vcell*Ns - 1.05*Vpack
+    V_lower = 0.95*Vpack - Vcell*Ns
+
+    return [V_upper, V_lower]
+
+def eqConsctraintFunctions(Vpack,Ns,voltages):
+    Vcell = np.mean(voltages)
+
+    V_eq = Vcell*Ns - Vpack
+
+    return [V_eq]
