@@ -20,6 +20,7 @@ class electrodeEquations:
         self.C = constants.C
         self.cmax = constants.c_s_max
         self.cavg = constants.c_s_avg
+        self.ce_0 = constants.c_e_init
         self.Ds = constants.Ds
         self.ED = constants.ED
         self.Ek = constants.Ek

@@ -10,6 +10,7 @@ class electrode:
     C: float;               #Specific heat
     c_s_max: float;         #Maximum solid phase concentration
     c_s_avg: float;         #Average solid phase concentration
+    c_e_init: float;        #Initial electrolyte concentration
     Ds: float;              #Solid phase diffusivity
     ED: float;              #Activation energy for the solid diffusion
     Ek: float;              #Activation energy for the reaction constant
@@ -38,6 +39,7 @@ def negative_electrode_data(ve,l,R,L):
         C=706.9,
         c_s_max=30555.0,
         c_s_avg=26128,
+        c_e_init=1000,
         Ds=3.9e-14,
         ED=5000,
         Ek=5000,
@@ -66,6 +68,7 @@ def LFP_positive_electrode_data(ve,l,R,L):
         C=1260.0,
         c_s_max=51554.0,
         c_s_avg=25751,
+        c_e_init=1000,
         Ds=4.295e-18,
         ED=5000,
         Ek=5000,
@@ -94,6 +97,7 @@ def LCO_positive_electrode_data(ve,l,R,L):
         C=1269.0,
         c_s_max=51554.0,
         c_s_avg=25751,
+        c_e_init=1000,
         Ds=1.806e-14,
         ED=5000,
         Ek=5000,
@@ -114,7 +118,8 @@ def LCO_positive_electrode_data(ve,l,R,L):
 class separator:
     #Material properties
     brugg: float;           #Bruggerman coefficient
-    C:float;                #Specific heat
+    C: float;               #Specific heat
+    c_e_init: float;        #Initial electrolite concentration
     p: float;               #Price
     eps: float;             #Volume fraction
     lam: float;             #Thermal conductivity
@@ -132,6 +137,7 @@ def separator_data(ve,l,L):
         #Mat prop
         brugg=4.0,
         C=1.7,
+        c_e_init=1000,
         p=223.0,
         eps = eps,
         lam=0.2,

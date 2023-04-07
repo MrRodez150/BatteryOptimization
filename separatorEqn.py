@@ -8,6 +8,7 @@ class separatorEquations:
     def __init__(self, constants, p_constants, n_constants, delta_t):
         self.brugg = constants.brugg
         self.C = constants.C
+        self.ce_0 = constants.c_e_init
         self.l = constants.l
         self.vareps = constants.vareps
         self.lam = constants.lam

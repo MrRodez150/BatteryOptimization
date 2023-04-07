@@ -136,9 +136,9 @@ def p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell):
     Umat = jnp.hstack(
         [
             #ce
-            1000 + jnp.zeros(pd + 2),
-            1000 + jnp.zeros(od + 2),
-            1000 + jnp.zeros(nd + 2),
+            p_eqn.ce_0 + jnp.zeros(pd + 2),
+            o_eqn.ce_0 + jnp.zeros(od + 2),
+            n_eqn.ce_0 + jnp.zeros(nd + 2),
             #j
             jnp.zeros(pd),
             jnp.zeros(nd),
@@ -149,9 +149,9 @@ def p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell):
             jnp.zeros(pd + 2) + p_eqn.openCircPot_start(),
             jnp.zeros(nd + 2) + n_eqn.openCircPot_start(),
             #phie
-            jnp.zeros(pd + 2) + 0,
-            jnp.zeros(od + 2) + 0,
-            jnp.zeros(nd + 2) + 0,
+            jnp.zeros(pd + 2),
+            jnp.zeros(od + 2),
+            jnp.zeros(nd + 2),
             #T
             T_ref + jnp.zeros(ad + 2),
             T_ref + jnp.zeros(pd + 2),
@@ -207,7 +207,12 @@ def p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell):
         cs_pe1 = (cI_pe_vec[pdr:pd * (pdr + 2):pdr + 2] + cI_pe_vec[pdr + 1:pd * (pdr + 2):pdr + 2]) / 2
         cs_ne1 = (cI_ne_vec[ndr:nd * (ndr + 2):ndr + 2] + cI_ne_vec[ndr + 1:nd * (ndr + 2):ndr + 2]) / 2
         
-        Umat, fail = newton(fn, jac_fn, Umat, cs_pe1, cs_ne1, cs_p_g_vec, cs_n_g_vec, idx_tot, re_idx)
+        try:
+            Umat, fail = newton(fn, jac_fn, Umat, cs_pe1, cs_ne1, cs_p_g_vec, cs_n_g_vec, idx_tot, re_idx)
+
+        except (ValueError):
+            fail = True
+            print("nan/inf solution")
         
         Tvec, Tvec_p, Tvec_n, phis_p, phis_n, jvec_p, jvec_n, etavec_n = unpack_vars(Umat)
 

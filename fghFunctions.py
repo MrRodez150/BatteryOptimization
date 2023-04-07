@@ -2,7 +2,7 @@ from scipy import integrate
 import numpy as np
 
 from auxiliaryExp import area, mass, internalResistance
-from globalValues import F,R
+from globalValues import F,R,T_ref
 
 def specificEnergy(v,i,t,M,A,Rx):
     Es = A*integrate.trapezoid(i*(v-(Rx*i)),t)/M
@@ -19,7 +19,7 @@ def batteryPrice(data_a,data_p,data_o,data_n,data_z,data_e,Ns,Np,A,L):
                     + lprho(data_a) + lprho(data_z))
 
 def maxTempAvg(T):
-    return np.mean(T)
+    return np.mean(T-T_ref)
 
 def capFade(j,eta,T,mu,rho):
     var = ((0.5*F)/(R*T))*eta
