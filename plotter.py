@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import jax.numpy as jnp
 
-from config import div_x_elec, div_x_sep, div_x_cc
+from settings import div_x_elec, div_x_sep, div_x_cc
 
 def plot_pon(p, o, n, lp, lo, ln, y_lbl:str):
 
@@ -47,3 +47,29 @@ def plotTimeChange(t, y, y_lbl:str):
     plt.ylabel(y_lbl)
 
     return fig
+
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jan 18 14:24:49 2021
+
+@author: hanrach
+"""
+
+def plot_solid_conc(cmat_vec, N, M, elec):
+        
+    xp = elec.l*( jnp.arange(1,M+1) - 0.5 )/M
+    yp = elec.Rp*( jnp.arange(1,N+1) - 0.5 )/N
+    xx, yy = jnp.meshgrid(xp, yp);
+
+    cmat = jnp.reshape(cmat_vec, [N+2, M], order="F")
+    plt.figure()
+    plt.contourf(xx,yy,cmat[1:N+1,:]); plt.colorbar()
+    plt.ticklabel_format(style='sci', axis='both', scilimits=(0,0))
+    plt.show()
+    
+def plot_u(uvec_pe, uvec_sep, uvec_ne):
+    plt.figure()
+    plt.plot(jnp.hstack([uvec_pe, uvec_sep, uvec_ne]))
+    plt.show()

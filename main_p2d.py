@@ -1,63 +1,90 @@
+from scipy.sparse import csc_matrix
+from scipy.sparse.linalg import splu
+import jax.numpy as jnp
 from jax.config import config
 config.update('jax_enable_x64', True)
 
-from mainAux import get_sections_data, get_battery_equations
-from solver import p2d_fn_solver
-from fghFunctions import area, objectiveFunctions, ineqConstraintFunctions
-from plotter import plotTimeChange
+import timeit
 
+from init import p2d_init_fast
+from batteryBuilder import build_battery
+from derivatives import partials, compute_jac
+from p2dBuilder import get_battery_sections
+from precompute import precompute
+from p2dSolver import p2d_reorder_fn
+from fghFunctions import objectiveFunctions, ineqConstraintFunctions
+from auxiliaryExp import area
+from settings import dxP, dxN
 
-def p2d_simulate(x, Vpack, Ipack):
+def p2d_simulate(x, Vpack, Ipack, verbose=False):
 
+    start = timeit.default_timer()
+
+    #Decision variables
+
+    C = x["C"]
     la = x["la"]
     lp = x["lp"]
     lo = x["lo"]
     ln = x["ln"]
     lz = x["lz"]
     Lh = x["Lh"]
-    p_mat = x["mat"]
+    Rp = x["Rp"]
+    Rn = x["Rn"]
+    Rcell = x["Rcell"]
+    efp = x["efp"]
+    efo = x["efo"]
+    efn = x["efn"]
+    mat = x["mat"]
     Np = x["Np"]
     Ns = x["Ns"]
-    RPp = x["Rp"]
-    RPn = x["Rn"]
-    Rcell = x["Rc"]
-    C_rate = x["C"]
-    ve_p = x["ve_p"]
-    ve_o = x["ve_o"]
-    ve_n = x["ve_n"]
 
-    L = lp+lo+ln
-    Lt = L + la + lz
+    Icell = Ipack * C / Np
+
+    #Construction of the battery
+
+    p_data, n_data, o_data, a_data, z_data, e_data = build_battery(mat,efp,efo,efn,Rp,Rn,la,lp,lo,ln,lz)
+
+
+    p_eq, n_eq, o_eq, a_eq, z_eq = get_battery_sections(p_data, n_data, o_data, a_data, z_data, Icell)
+
+    #Preparing functions for simulations
+
+    fn, _ = p2d_init_fast(p_eq, n_eq, o_eq, a_eq, z_eq, Icell)
+
+    Ap, An, gamma_n, gamma_p, temp_p, temp_n = precompute(p_eq, n_eq)
+    gamma_p_vec = gamma_p * jnp.ones(dxP)
+    gamma_n_vec = gamma_n * jnp.ones(dxN)
+    lu_p = splu(csc_matrix(Ap))
+    lu_n = splu(csc_matrix(An))
+
+    partial_fns = partials(a_eq, p_eq, o_eq, n_eq, z_eq)
+    jac_fn = compute_jac(gamma_p_vec, gamma_n_vec, partial_fns, p_eq, n_eq, Icell)
+
+    mid = timeit.default_timer()
+
+    #Simulate
+
+    U_fast, cmat_pe, cmat_ne, \
+        voltage, temp, flux, ovpot, tempN, times, fail = p2d_reorder_fn(p_eq, o_eq, n_eq,
+                                                                        lu_p, lu_n, temp_p, temp_n,
+                                                                        gamma_p_vec, gamma_n_vec,
+                                                                        fn, jac_fn, tol=1e-6, verbose=verbose)
+
+
+    #Obtain objective funcions and constraint violations
+
+    L=lp+lo+ln
+    Lt = L+la+lz
     A = area(Lh,Lt,Rcell)
 
-    print(A)
-
-    #Icell = -(Ipack*C_rate)/(Np*A)
-    Icell = -1
-
-    a_data, p_data, o_data, n_data, z_data, e_data = get_sections_data(la,ve_p,lp,RPp,ve_o,lo,ve_n,ln,RPn,lz,L,p_mat)
-
-    p_eqn, n_eqn, o_eqn, a_eqn, z_eqn = get_battery_equations(a_data, p_data, o_data, n_data, z_data, Icell)
-
-    voltage, temp, flux, ovpot, temp_n, times, time, fail = p2d_fn_solver(p_eqn, n_eqn, o_eqn, a_eqn, z_eqn, Icell)
-
     objFun = objectiveFunctions(a_data, p_data, o_data, n_data, z_data, e_data, 
-                                Icell, Np, Ns, L, A, 
-                                voltage, temp, flux, ovpot, temp_n, times)
-    
+                                Icell, Np, Ns, Lt, A, 
+                                voltage, temp, flux, ovpot, tempN, times)
+
     conFun = ineqConstraintFunctions(Vpack,Ns,voltage)
 
-    
-    print(voltage)
-    print(temp)
-    print(flux)
-    print(ovpot)
-    print(temp_n)
-    print(times)
-    """
-    v_fig = plotTimeChange(times, voltage, 'voltage [V]')
-    v_fig.show()
-    """
-    
-    return objFun, conFun, time, fail
+    end = timeit.default_timer()
+    time = [end-start, mid-start, end-mid]
 
+    return objFun, conFun, time, fail

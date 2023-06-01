@@ -1,13 +1,13 @@
-import math
+import numpy as np
 
-def volumeFraction(vareps:float,l:float,L:float):
-    return (1-vareps)*l/L
+def volumeFraction(eps:float,l:float,L:float):
+    return (1-eps)*l/L
 
-def interfacialArea(vareps:float,eps:float,R:float):
-    return 3*(1-vareps-eps)/R
+def interfacialArea(epsf:float,R:float):
+    return 3*(1-epsf)/R
 
-def eVolumeFraction(eps_p,eps_o,eps_n):
-    return 1-eps_p-eps_o-eps_n
+def eVolumeFraction(epsf_p,epsf_o,epsf_n):
+    return 1-epsf_p-epsf_o-epsf_n
 
 def internalResistance(dat_a, dat_p, dat_n, dat_z):
     la = dat_a.l
@@ -21,11 +21,11 @@ def internalResistance(dat_a, dat_p, dat_n, dat_z):
     return 1/(la*sig_a + lp*sig_p + ln*sig_n + lz*sig_z)
 
 def turns(Rcell,Lt):
-    return 2*math.pi*Rcell/Lt
+    return 2*np.pi*Rcell/Lt
 
 def area(Lh,Lt,Rcell):
     tur = turns(Rcell,Lt)
-    return (Lh*Lt) * (tur*math.sqrt(tur**2+1) + math.log(tur+math.sqrt(tur**2+1))) / (4*math.pi)
+    return (Lh*Lt) * (tur*np.sqrt(tur**2+1) + np.log(tur+np.sqrt(tur**2+1))) / (4*np.pi)
 
 def mass(dat_a, dat_p, dat_o, dat_n, dat_z, dat_e, L):
     
@@ -35,10 +35,10 @@ def mass(dat_a, dat_p, dat_o, dat_n, dat_z, dat_e, L):
     rho_n = dat_n.rho
     rho_z = dat_z.rho
     rho_e = dat_e.rho
-    eps_p = dat_p.eps
-    eps_o = dat_o.eps
-    eps_n = dat_n.eps
-    eps_e = dat_e.eps
+    eps_p = dat_p.epsf
+    eps_o = dat_o.epsf
+    eps_n = dat_n.epsf
+    eps_e = dat_e.epsf
     la = dat_a.l
     lz = dat_z.l
     

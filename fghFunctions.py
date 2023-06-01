@@ -1,15 +1,16 @@
 from scipy import integrate
 import numpy as np
 
-from auxiliaryExp import area, mass, internalResistance
+from auxiliaryExp import mass, internalResistance
 from globalValues import F,R,T_ref
 
 def specificEnergy(v,i,t,M,A,Rx):
+    i = abs(i)
     Es = A*integrate.trapezoid(i*(v-(Rx*i)),t)/M
     return Es
 
 def perho(data):
-    return data.p*data.rho*data.eps
+    return data.p*data.rho*data.epsf
 
 def lprho(data):
     return data.l*data.p*data.rho
