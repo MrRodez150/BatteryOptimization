@@ -9,14 +9,15 @@ def specificEnergy(v,i,t,M,A,Rx):
     Es = A*integrate.trapezoid(i*(v-(Rx*i)),t)/M
     return Es
 
-def perho(data):
-    return data.p*data.rho*data.epsf
+def lperho(data):
+    return data.l*data.p*data.rho*data.epsf
 
 def lprho(data):
     return data.l*data.p*data.rho
 
-def batteryPrice(data_a,data_p,data_o,data_n,data_z,data_e,Ns,Np,A,L):
-    return Ns*Np*A*(L*(perho(data_p) + perho(data_o) + perho(data_n) + perho(data_e)) 
+def batteryPrice(data_a,data_p,data_o,data_n,data_z,data_e,Ns,Np,A):
+    return Ns*Np*A*(lperho(data_p) + lperho(data_o) + lperho(data_n) 
+                    + lperho(data_e) 
                     + lprho(data_a) + lprho(data_z))
 
 def maxTempAvg(T):
@@ -30,26 +31,28 @@ def capFade(j,eta,T,mu,rho):
     return np.mean(SEI_growth)
 
 def objectiveFunctions(data_a,data_p,data_o,data_n,data_z,data_e,
-                       Icell,Np,Ns,L,A,
+                       Icell,Np,Ns,A,
                        volt,Temps,flux,etas,Tn,times):
 
-    M = mass(data_a,data_p,data_o,data_n,data_z,data_e,L)
+    M = mass(data_a,data_p,data_o,data_n,data_z,data_e)
     Rx = internalResistance(data_a,data_p,data_n,data_z)
 
     Es = specificEnergy(volt,-Icell,times,M,A,Rx)
     SEIg = capFade(flux,etas,Tn,data_n.mu,data_n.rho)
     Tavg = maxTempAvg(Temps)
-    P = batteryPrice(data_a,data_p,data_o,data_n,data_z,data_e,Ns,Np,A,L)
+    P = batteryPrice(data_a,data_p,data_o,data_n,data_z,data_e,Ns,Np,A)
 
     return [Es, SEIg, Tavg, P]
 
-def ineqConstraintFunctions(Vpack,Ns,voltages):
+def ineqConstraintFunctions(Vpack,Ns,voltages, efp, efo, efn):
     Vcell = np.mean(voltages)
 
     V_upper = Vcell*Ns - 1.05*Vpack
     V_lower = 0.95*Vpack - Vcell*Ns
 
-    return [V_upper, V_lower]
+    volFrac = efp + efo + efn - 0.93
+
+    return [V_upper, V_lower, volFrac]
 
 def eqConsctraintFunctions(Vpack,Ns,voltages):
     Vcell = np.mean(voltages)

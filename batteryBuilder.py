@@ -164,17 +164,19 @@ class electrolyte_constants:
 
     De: float;              #Liquid phase diffusivity
     p: float;               #Price
-    epsf: float              #Volume fraction
+    l:float                 #Thikness
+    epsf: float             #Volume fraction
     kappa: float;           #Liquid phase conductivity
     rho: float;             #Density
 
-def LPF_electrolyte_data(e_p,e_o,e_n):
+def LPF_electrolyte_data(e_p,e_o,e_n,l):
 
     epsf = eVolumeFraction(e_p,e_o,e_n)
 
     return electrolyte_constants(
         De=7.5e-10,
         p=820.0,
+        l = l,
         epsf=epsf,
         kappa=0.62,
         rho=1220.0
@@ -191,7 +193,7 @@ def build_battery(mat, efp, efo, efn, Rp, Rn, la, lp, lo, ln, lz):
     o_data = PP_separator_data(efo,lo)
     a_data = Al_cc_data(la)
     z_data = Cu_cc_data(lz)
-    e_data = LPF_electrolyte_data(efp,efo,efn)
+    e_data = LPF_electrolyte_data(efp,efo,efn,lp+lo+ln)
     return p_data, n_data, o_data, a_data, z_data, e_data
 
 

@@ -65,7 +65,7 @@ def p2d_simulate(x, Vpack, Ipack, verbose=False):
 
     #Simulate
 
-    U_fast, cmat_pe, cmat_ne, \
+    _, _, _, \
         voltage, temp, flux, ovpot, tempN, times, fail = p2d_reorder_fn(p_eq, o_eq, n_eq,
                                                                         lu_p, lu_n, temp_p, temp_n,
                                                                         gamma_p_vec, gamma_n_vec,
@@ -74,15 +74,12 @@ def p2d_simulate(x, Vpack, Ipack, verbose=False):
 
     #Obtain objective funcions and constraint violations
 
-    L=lp+lo+ln
-    Lt = L+la+lz
-    A = area(Lh,Lt,Rcell)
-
+    
     objFun = objectiveFunctions(a_data, p_data, o_data, n_data, z_data, e_data, 
-                                Icell, Np, Ns, Lt, A, 
+                                Icell, Np, Ns, area(Lh,la+lp+lo+ln+lz,Rcell), 
                                 voltage, temp, flux, ovpot, tempN, times)
 
-    conFun = ineqConstraintFunctions(Vpack,Ns,voltage)
+    conFun = ineqConstraintFunctions(Vpack,Ns,voltage,efp,efo,efn)
 
     end = timeit.default_timer()
     time = [end-start, mid-start, end-mid]
