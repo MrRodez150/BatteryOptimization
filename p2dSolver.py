@@ -57,8 +57,8 @@ def p2d_reorder_fn(peq, oeq, neq, lu_pe, lu_ne, temp_p, temp_n, gamma_p_vec, gam
             jnp.zeros(dxP),
             jnp.zeros(dxN),
 
-            jnp.zeros(dxP + 2) + peq.open_circuit_poten(peq.cavg, peq.cavg, T_ref, peq.cmax),
-            jnp.zeros(dxN + 2) + neq.open_circuit_poten(neq.cavg, neq.cavg, T_ref, neq.cmax),
+            jnp.zeros(dxP + 2) + peq.open_circ_poten_ref(peq.cavg),
+            jnp.zeros(dxN + 2) + neq.open_circ_poten_ref(neq.cavg),
 
             jnp.zeros(dxP + 2) + 0,
             jnp.zeros(dxO + 2) + 0,
@@ -101,7 +101,7 @@ def p2d_reorder_fn(peq, oeq, neq, lu_pe, lu_ne, temp_p, temp_n, gamma_p_vec, gam
         cs_ne1 = (cI_ne_vec[drN:dxN * (drN + 2):drN + 2] + cI_ne_vec[drN + 1:dxN * (drN + 2):drN + 2]) / 2
 
         try:
-            U_fast, fail = newton(fn_fast, jac_fn, U_fast, cs_pe1, cs_ne1, gamma_p_vec, gamma_n_vec, idx_tot,re_idx, tol, verbose)
+            U_fast, fail = newton(fn_fast, jac_fn, U_fast, cs_pe1, cs_ne1, gamma_p_vec, gamma_n_vec, idx_tot, re_idx, delta_t, tol, verbose)
 
         except (ValueError):
             fail = 'Nan'

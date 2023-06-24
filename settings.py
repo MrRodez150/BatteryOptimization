@@ -1,13 +1,3 @@
-global div_x_elec
-global div_x_sep
-global div_x_cc
-global div_r
-
-div_x_elec = 10;
-div_x_sep = 5;
-div_x_cc = 5;
-div_r = 10;
-
 global dxP
 global dxN
 global dxO
@@ -38,4 +28,4 @@ global cutOff
 
 tolerance=1e-7;
 maxit=10;
-cutOff = 2.5;
+cutOff = 2.7;

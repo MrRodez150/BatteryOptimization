@@ -1,5 +1,3 @@
-from scipy.sparse import csc_matrix
-from scipy.sparse.linalg import splu
 import jax.numpy as jnp
 from jax.config import config
 config.update('jax_enable_x64', True)
@@ -14,7 +12,6 @@ from precompute import precompute
 from p2dSolver import p2d_reorder_fn
 from fghFunctions import objectiveFunctions, ineqConstraintFunctions
 from auxiliaryExp import area
-from settings import dxP, dxN
 
 def p2d_simulate(x, Vpack, Ipack, verbose=False):
 
@@ -50,16 +47,12 @@ def p2d_simulate(x, Vpack, Ipack, verbose=False):
 
     #Preparing functions for simulations
 
-    fn, _ = p2d_init_fast(p_eq, n_eq, o_eq, a_eq, z_eq, Icell)
+    fn = p2d_init_fast(p_eq, n_eq, o_eq, a_eq, z_eq, Icell)
 
-    Ap, An, gamma_n, gamma_p, temp_p, temp_n = precompute(p_eq, n_eq)
-    gamma_p_vec = gamma_p * jnp.ones(dxP)
-    gamma_n_vec = gamma_n * jnp.ones(dxN)
-    lu_p = splu(csc_matrix(Ap))
-    lu_n = splu(csc_matrix(An))
+    lu_p, lu_n, gamma_n, gamma_p, temp_p, temp_n = precompute(p_eq, n_eq)
 
     partial_fns = partials(a_eq, p_eq, o_eq, n_eq, z_eq)
-    jac_fn = compute_jac(gamma_p_vec, gamma_n_vec, partial_fns, p_eq, n_eq, Icell)
+    jac_fn = compute_jac(gamma_p, gamma_n, partial_fns, Icell)
 
     mid = timeit.default_timer()
 
@@ -68,7 +61,7 @@ def p2d_simulate(x, Vpack, Ipack, verbose=False):
     _, _, _, \
         voltage, temp, flux, ovpot, tempN, times, fail = p2d_reorder_fn(p_eq, o_eq, n_eq,
                                                                         lu_p, lu_n, temp_p, temp_n,
-                                                                        gamma_p_vec, gamma_n_vec,
+                                                                        gamma_p, gamma_n,
                                                                         fn, jac_fn, tol=1e-6, verbose=verbose)
 
 

@@ -4,7 +4,7 @@ from jax.config import config
 config.update("jax_enable_x64", True)
 
 from globalValues import F, R, gamma, t_plus
-from settings import delta_t, dxO, dxP, dxN
+from settings import dxO, dxP, dxN #, delta_t
 import coeffs as coeffs
 
 class SeparatorEquation:
@@ -16,7 +16,7 @@ class SeparatorEquation:
         self.lam = constants.lam
         self.brugg = constants.brugg
         self.l = constants.l
-        self.delta_t = delta_t
+        #self.delta_t = delta_t
         self.dx = self.l/dxO
         self.pe = p_constants
         self.ne = n_constants
@@ -32,7 +32,7 @@ class SeparatorEquation:
         + (2*kapeff*R*T/F)*(1-t_plus)*( (jnp.log(ce_3) - jnp.log(ce_1))/(2*dx) )*( (phiep - phien)/(2*dx) )
         return ans
         
-    def electrolyte_conc(self,ce_1, ce_2, ce_3, Tn, Tc, Tp, uold):
+    def electrolyte_conc(self,ce_1, ce_2, ce_3, Tn, Tc, Tp, uold, delta_t):
         eps = self.eps; brugg = self.brugg; dx = self.dx
 
         umid_r = (ce_3+ce_2)/2
@@ -42,17 +42,17 @@ class SeparatorEquation:
         Deff_r = coeffs.electrolyteDiffCoeff(eps,brugg,umid_r,Tmid_r)
         Deff_l = coeffs.electrolyteDiffCoeff(eps,brugg,umid_l,Tmid_l)
  
-        ans = (ce_2-uold) -  (self.delta_t/eps)*( Deff_r*(ce_3 - ce_2)/dx - Deff_l*(ce_2 - ce_1)/dx )/dx 
+        ans = (ce_2-uold) -  (delta_t/eps)*( Deff_r*(ce_3 - ce_2)/dx - Deff_l*(ce_2 - ce_1)/dx )/dx 
         return ans.reshape()
     
-    def Du_Dun(self,ce_1,ce_2,Tn,Tc):
+    def Du_Dun(self,ce_1,ce_2,Tn,Tc,delta_t):
         eps = self.eps; brugg = self.brugg; dx = self.dx
         umid_l = (ce_1+ce_2)/2
         Tmid_l = (Tn+Tc)/2
     
         Deff_l = coeffs.electrolyteDiffCoeff(eps,brugg,umid_l,Tmid_l)
         Deff_l_Du = grad(coeffs.electrolyteDiffCoeff,(2))(eps,brugg,umid_l,Tmid_l)
-        ans = (self.delta_t/(eps*dx**2))*(Deff_l_Du*(ce_2-ce_1) + Deff_l)
+        ans = (delta_t/(eps*dx**2))*(Deff_l_Du*(ce_2-ce_1) + Deff_l)
         return ans
 
     
@@ -107,11 +107,11 @@ class SeparatorEquation:
         bc = -kapeff_s*(phie1_s - phie0_s)/self.dx + kapeff_n*(phie1_n - phie0_n)/self.ne_hx
         return bc.reshape()
 
-    def temperature(self, ce_1, ce_2, ce_3, phien, phiep, Tn, Tc, Tp, Told):
+    def temperature(self, ce_1, ce_2, ce_3, phien, phiep, Tn, Tc, Tp, Told, delta_t):
         dx = self.dx
 #        ans = (Tc - Told) -  (delta_t/(self.rho*self.Cp))*( self.lam*( Tn - 2*Tc + Tp)/dx**2 + \
 #        self.Qohm( phien, phiep, ce_1, ce_3, ce_2, Tc) )
-        ans = (Tc - Told) -  (self.delta_t/(self.rho*self.Cp))*( self.lam*( Tn - 2*Tc + Tp)/dx**2 + \
+        ans = (Tc - Told) -  (delta_t/(self.rho*self.Cp))*( self.lam*( Tn - 2*Tc + Tp)/dx**2 + \
         self.Qohm( phien, phiep, ce_1, ce_3, ce_2, Tc) )
         return ans.reshape()
     

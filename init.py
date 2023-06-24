@@ -1,60 +1,52 @@
-from jax import jacfwd, jit
+from jax import jit
 import jax.numpy as np
 
-from resFunc import ResidualFunctionFast
-from unpack import  unpack
+from resFunc import ResidualFunction
+from unpack import unpack
 
-def p2d_init_fast(peq, neq, sepq, accq, zccq,Iapp):
-    solver_fast = ResidualFunctionFast(peq, neq, sepq, accq, zccq, Iapp)
+def p2d_init_fast(eqn_p, eqn_n, eqn_o, eqn_a, eqn_z, Iapp):
+    solver = ResidualFunction(eqn_p, eqn_n, eqn_o, eqn_a, eqn_z, Iapp)
    
-    def fn_fast(U, Uold, cs_pe1, cs_ne1, gamma_p, gamma_n):
-    #    val = np.zeros(Ntot)
-        val= np.zeros(solver_fast.Ntot)
-#        U, Uold, cs_pe1, cs_ne1, gamma_p, gamma_n
-#        U = arg0["U"]; Uold=arg0["Uold"]; cs_pe1=arg0["cs_pe1"]; cs_ne1=arg0["cs_ne1"]; gamma_p=arg0["gamma_p"]; gamma_n=arg0["gamma_n"]       
-#        gamma_p = gamma_p*np.ones(Mp)
-#        gamma_n = gamma_n*np.ones(Mn)
-        uvec_pe, uvec_sep, uvec_ne, \
-        Tvec_acc, Tvec_pe, Tvec_sep, Tvec_ne, Tvec_zcc, \
-        phie_pe, phie_sep, phie_ne, \
-        phis_pe, phis_ne, jvec_pe,jvec_ne,eta_pe,eta_ne = unpack(U)
+    def fn_fast(U, Uold, cs_pe1, cs_ne1, gamma_p, gamma_n, delta_t):
+
+        val= np.zeros(solver.Ntot)
+
+        ce_p, ce_o, ce_n, \
+        T_a, T_p, T_o, T_n, T_z, \
+        phie_p, phie_o, phie_n, \
+        phis_p, phis_n, \
+        j_p, j_n, \
+        eta_p, eta_n = unpack(U)
     
         
-        uvec_old_pe, uvec_old_sep, uvec_old_ne,\
-        Tvec_old_acc, Tvec_old_pe, Tvec_old_sep, Tvec_old_ne, Tvec_old_zcc,\
-        _, _, \
-        _, _,\
-        _,_,\
-        _,_,_= unpack(Uold)
+        ce_p_old, ce_o_old, ce_n_old,\
+        T_a_old, T_p_old, T_o_old, T_n_old, T_z_old,\
+        _,_,_,_,_,_,_,_,_= unpack(Uold)
         
+      
+        val = solver.res_ce_p(val, ce_p, T_p, j_p, ce_p_old, ce_o, T_o, delta_t)
+        val = solver.res_ce_o(val, ce_o, T_o, ce_o_old, ce_p, T_p, ce_n, T_n, delta_t)
+        val = solver.res_ce_n(val, ce_n, T_n, j_n, ce_n_old, ce_o, T_o, delta_t)
         
-        ''' add direct solve for c'''
+        val = solver.res_T_a(val, T_a, T_a_old, T_p, delta_t)
+        val = solver.res_T_p(val, T_p, ce_p, phie_p, phis_p, j_p, eta_p, cs_pe1, gamma_p, T_p_old, T_a, T_o, delta_t)
+        val = solver.res_T_o(val, T_o, ce_o, phie_o, T_o_old, T_p, T_n, delta_t)
+        val = solver.res_T_n(val, T_n, ce_n, phie_n, phis_n, j_n, eta_n, cs_ne1, gamma_n, T_n_old, T_z, T_o, delta_t)
+        val = solver.res_T_z(val, T_z, T_z_old, T_n, delta_t)
+        
+        val = solver.res_phie_p(val, ce_p, phie_p, T_p, j_p, ce_o,phie_o, T_o)
+        val = solver.res_phie_o(val, ce_o, phie_o, T_o, phie_p, phie_n)
+        val = solver.res_phie_n(val, ce_n, phie_n, T_n, j_n, ce_o, phie_o, T_o)
     
-       
-        val = solver_fast.res_u_pe(val, uvec_pe, Tvec_pe, jvec_pe, uvec_old_pe, uvec_sep, Tvec_sep)
-        val = solver_fast.res_u_sep(val, uvec_sep, Tvec_sep, uvec_old_sep, uvec_pe, Tvec_pe, uvec_ne, Tvec_ne)
-        val = solver_fast.res_u_ne(val, uvec_ne, Tvec_ne, jvec_ne, uvec_old_ne, uvec_sep, Tvec_sep)
-        
-        val = solver_fast.res_T_acc(val, Tvec_acc, Tvec_old_acc, Tvec_pe)
-        val = solver_fast.res_T_pe_fast(val, Tvec_pe, uvec_pe, phie_pe, phis_pe, jvec_pe, eta_pe, cs_pe1, gamma_p, Tvec_old_pe, Tvec_acc, Tvec_sep)
-        val = solver_fast.res_T_sep(val, Tvec_sep, uvec_sep, phie_sep, Tvec_old_sep, Tvec_pe, Tvec_ne )
-        val = solver_fast.res_T_ne_fast(val, Tvec_ne, uvec_ne, phie_ne, phis_ne, jvec_ne, eta_ne, cs_ne1, gamma_n, Tvec_old_ne, Tvec_zcc, Tvec_sep)
-        val = solver_fast.res_T_zcc(val, Tvec_zcc, Tvec_old_zcc, Tvec_ne)
-        
-        val = solver_fast.res_phie_pe(val, uvec_pe, phie_pe, Tvec_pe, jvec_pe, uvec_sep,phie_sep, Tvec_sep)
-        val = solver_fast.res_phie_sep(val, uvec_sep, phie_sep, Tvec_sep, phie_pe, phie_ne)
-        val = solver_fast.res_phie_ne(val, uvec_ne, phie_ne, Tvec_ne, jvec_ne, uvec_sep, phie_sep, Tvec_sep)
+        val = solver.res_phis(val, phis_p, j_p, phis_n, j_n)
     
-        val = solver_fast.res_phis(val, phis_pe, jvec_pe, phis_ne, jvec_ne)
-    
-        val = solver_fast.res_j_fast(val, jvec_pe, uvec_pe, Tvec_pe, eta_pe, cs_pe1, gamma_p, jvec_ne, uvec_ne, Tvec_ne, eta_ne, cs_ne1, gamma_n)
-        val = solver_fast.res_eta_fast(val, eta_pe, phis_pe, phie_pe, Tvec_pe, jvec_pe, cs_pe1, gamma_p, eta_ne, phis_ne, phie_ne, Tvec_ne, jvec_ne, cs_ne1, gamma_n)
+        val = solver.res_j(val, j_p, ce_p, T_p, eta_p, cs_pe1, gamma_p, j_n, ce_n, T_n, eta_n, cs_ne1, gamma_n)
+        val = solver.res_eta(val, eta_p, phis_p, phie_p, T_p, j_p, cs_pe1, gamma_p, eta_n, phis_n, phie_n, T_n, j_n, cs_ne1, gamma_n)
         
         return val
     
     fn_fast=jit(fn_fast)
-    jac_fn_fast=jit(jacfwd(fn_fast))
         
-    return fn_fast, jac_fn_fast
+    return fn_fast
     
     

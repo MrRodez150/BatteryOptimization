@@ -10,304 +10,325 @@ class HashableDict(dict):
     def __hash__(self):
         return hash(frozenset(self.items()))
 
-def partials(accq, peq, sepq, neq, zccq):
+def partials(eqn_a, eqn_p, eqn_o, eqn_n, eqn_z):
 
-    dup = (vmap(grad(peq.electrolyte_conc, argnums=range(0, 8))))
-    djp = (vmap(grad(peq.ionic_flux_fast, argnums=range(0, 4))))
+    #Positive electrode
+    ce_p_d = (vmap(grad(eqn_p.electrolyte_conc, argnums=range(0, 8))))
+    j_p_d = (vmap(grad(eqn_p.ionic_flux, argnums=range(0, 4))))
+    eta_p_d = (vmap(grad(eqn_p.over_poten, argnums=range(0, 5))))
+    phis_p_d = (vmap(grad(eqn_p.solid_poten, argnums=range(0, 4))))
+    phie_p_d = (vmap(grad(eqn_p.electrolyte_poten, argnums=range(0, 10))))
+    T_p_d = (vmap(grad(eqn_p.temperature, argnums=range(0, 12))))
 
-    detap = (vmap(grad(peq.over_poten_fast, argnums=range(0, 5))))
+    ce_p_bc0_d = grad(eqn_p.bc_zero_neumann, argnums=(0, 1))
+    ce_p_bc1_d = grad(eqn_p.bc_ce_po, argnums=range(0, 8))
 
-    dphisp = (vmap(grad(peq.solid_poten, argnums=range(0, 4))))
+    phis_p_bc0_d = grad(eqn_p.bc_phis, argnums=(0, 1))
+    phis_p_bc1_d = grad(eqn_p.bc_phis, argnums=(0, 1))
 
-    dphiep = (vmap(grad(peq.electrolyte_poten, argnums=range(0, 10))))
+    phie_p_bc0_d = grad(eqn_p.bc_zero_neumann, argnums=(0, 1))
+    phie_p_bc1_d = grad(eqn_p.bc_phie_p, argnums=range(0, 12))
 
-    dTp = (vmap(grad(peq.temperature_fast, argnums=range(0, 12))))
+    T_p_bc0_d = grad(eqn_p.bc_temp_ap, argnums=range(0, 4))
+    T_p_bc1_d = grad(eqn_p.bc_temp_po, argnums=range(0, 4))
 
+    #Separator
+    ce_o_d = vmap(grad(eqn_o.electrolyte_conc, argnums=range(0, 6)))
+    phie_o_d = vmap(grad(eqn_o.electrolyte_poten, argnums=range(0, 9)))
+    T_o_d = vmap(grad(eqn_o.temperature, argnums=range(0, 8)))
 
-    dup_bc0 = grad(peq.bc_zero_neumann, argnums=(0, 1))
-    dup_bcM = grad(peq.bc_u_sep_p, argnums=range(0, 8))
+    o_bc = grad(eqn_p.bc_inter_cont, argnums=range(0, 4))
 
-    dphisp_bc0 = grad(peq.bc_phis, argnums=(0, 1))
-    dphisp_bcM = grad(peq.bc_phis, argnums=(0, 1))
+    #Negative electrode
+    ce_n_d = vmap(grad(eqn_n.electrolyte_conc, argnums=range(0, 8)))
+    j_n_d = vmap(grad(eqn_n.ionic_flux, argnums=range(0, 4)))
+    eta_n_d = vmap(grad(eqn_n.over_poten, argnums=range(0, 5)))
+    phis_n_d = vmap(grad(eqn_n.solid_poten, argnums=range(0, 4)))
+    phie_n_d = vmap(grad(eqn_n.electrolyte_poten, argnums=range(0, 10)))
+    T_n_d = vmap(grad(eqn_n.temperature, argnums=range(0, 12)))
 
-    dphiep_bc0 = grad(peq.bc_zero_neumann, argnums=(0, 1))
-    dphiep_bcM = grad(peq.bc_phie_p, argnums=range(0, 12))
+    ce_n_bc0_d = grad(eqn_n.bc_ce_on, argnums=range(0, 8))
+    ce_n_bc1_d = grad(eqn_n.bc_zero_neumann, argnums=(0, 1))
 
-    dTp_bc0 = grad(peq.bc_temp_ap, argnums=range(0, 4))
-    dTp_bcM = grad(peq.bc_temp_ps, argnums=range(0, 4))
+    phis_n_bc0_d = grad(eqn_n.bc_phis, argnums=(0, 1))
+    phis_n_bc1_d = grad(eqn_n.bc_phis, argnums=(0, 1))
 
+    phie_n_bc0_d = grad(eqn_n.bc_phie_n, argnums=range(0, 12))
+    phie_n_bc1_d = grad(eqn_n.bc_zero_dirichlet, argnums=(0, 1))
 
+    T_n_bc0_d = grad(eqn_n.bc_temp_on, argnums=range(0, 4))
+    T_n_bc1_d = grad(eqn_n.bc_temp_nz, argnums=range(0, 4))
 
-    bc_s = grad(peq.bc_inter_cont, argnums=range(0, 4))
+    #Positive current collector
+    T_a_bc0_d = grad(eqn_a.bc_temp_a, argnums=(0, 1))
+    T_a_d = vmap(grad(eqn_a.temperature, argnums=range(0, 3)))
+    T_a_bc1_d = grad(eqn_p.bc_inter_cont, argnums=range(0, 4))
 
-    dus = vmap(grad(sepq.electrolyte_conc, argnums=range(0, 6)))
-
-    dphies = vmap(grad(sepq.electrolyte_poten, argnums=range(0, 9)))
-
-
-    dTs = vmap(grad(sepq.temperature, argnums=range(0, 8)))
-
-
-
-    dun_bc0 = grad(neq.bc_u_sep_n, argnums=range(0, 8))
-    dun = vmap(grad(neq.electrolyte_conc, argnums=range(0, 8)))
-    dun_bcM = grad(neq.bc_zero_neumann, argnums=(0, 1))
-
-    djn = vmap(grad(neq.ionic_flux_fast, argnums=range(0, 4)))
-
-
-    detan = vmap(grad(neq.over_poten_fast, argnums=range(0, 5)))
-
-
-    dphisn = vmap(grad(neq.solid_poten, argnums=range(0, 4)))
-    dphisn_bc0 = grad(neq.bc_phis, argnums=(0, 1))
-    dphisn_bcM = grad(neq.bc_phis, argnums=(0, 1))
-
-    dphien = vmap(grad(neq.electrolyte_poten, argnums=range(0, 10)))
-
-    dphien_bc0 = grad(neq.bc_phie_n, argnums=range(0, 12))
-    dphien_bcM = grad(neq.bc_zero_dirichlet, argnums=(0, 1))
-
-
-    dTn = vmap(grad(neq.temperature_fast, argnums=range(0, 12)))
-
-
-    dTn_bc0 = grad(neq.bc_temp_sn, argnums=range(0, 4))
-    dTn_bcM = grad(neq.bc_temp_n, argnums=range(0, 4))
-
-
-
-    dTa_bc0 = grad(accq.bc_temp_a, argnums=(0, 1))
-    dTa = vmap(grad(accq.temperature, argnums=range(0, 3)))
-    dTa_bcM = grad(peq.bc_inter_cont, argnums=range(0, 4))
-
-    dTz_bc0 = grad(neq.bc_inter_cont, argnums=range(0, 4))
-    dTz = vmap(grad(zccq.temperature, argnums=range(0, 3)))
-    dTz_bcM = grad(zccq.bc_temp_z, argnums=(0, 1))
+    #Negative current collector
+    T_z_bc0_d = grad(eqn_n.bc_inter_cont, argnums=range(0, 4))
+    T_z_d = vmap(grad(eqn_z.temperature, argnums=range(0, 3)))
+    T_z_bc1_d = grad(eqn_z.bc_temp_z, argnums=(0, 1))
 
     part = dict([
-        ('dup', dup),
-        ('djp', djp),
-        ('detap', detap),
-        ('dphisp', dphisp),
-        ('dphiep', dphiep),
-        ('dTp', dTp),
-        ('dup_bc0',dup_bc0),
-        ('dup_bcM', dup_bcM),
-        ('dphisp_bc0', dphisp_bc0),
-        ('dphisp_bcM', dphisp_bcM),
-        ('dphiep_bc0', dphiep_bc0),
-        ('dphiep_bcM', dphiep_bcM),
-        ('dTp_bc0', dTp_bc0),
-        ('dTp_bcM', dTp_bcM),
+        ('ce_p_d', ce_p_d),
+        ('j_p_d', j_p_d),
+        ('eta_p_d', eta_p_d),
+        ('phis_p_d', phis_p_d),
+        ('phie_p_d', phie_p_d),
+        ('T_p_d', T_p_d),
+        ('ce_p_bc0_d',ce_p_bc0_d),
+        ('ce_p_bc1_d', ce_p_bc1_d),
+        ('phis_p_bc0_d', phis_p_bc0_d),
+        ('phis_p_bc1_d', phis_p_bc1_d),
+        ('phie_p_bc0_d', phie_p_bc0_d),
+        ('phie_p_bc1_d', phie_p_bc1_d),
+        ('T_p_bc0_d', T_p_bc0_d),
+        ('T_p_bc1_d', T_p_bc1_d),
 
-        ('dus', dus),
-        ('dphies', dphies),
-        ('dTs', dTs),
-        ('bc_s', bc_s),
+        ('ce_o_d', ce_o_d),
+        ('phie_o_d', phie_o_d),
+        ('T_o_d', T_o_d),
+        ('o_bc', o_bc),
 
-        ('dun', dun),
-        ('djn', djn),
-        ('detan', detan),
-        ('dphisn', dphisn),
-        ('dphien', dphien),
-        ('dTn', dTn),
-        ('dun_bc0', dun_bc0),
-        ('dun_bcM', dun_bcM),
-        ('dphien_bc0', dphien_bc0),
-        ('dphien_bcM', dphien_bcM),
-        ('dphisn_bc0', dphisn_bc0),
-        ('dphisn_bcM', dphisn_bcM),
-        ('dTn_bc0', dTn_bc0),
-        ('dTn_bcM', dTn_bcM),
+        ('ce_n_d', ce_n_d),
+        ('j_n_d', j_n_d),
+        ('eta_n_d', eta_n_d),
+        ('phis_n_d', phis_n_d),
+        ('phie_n_d', phie_n_d),
+        ('T_n_d', T_n_d),
+        ('ce_n_bc0_d', ce_n_bc0_d),
+        ('ce_n_bc1_d', ce_n_bc1_d),
+        ('phie_n_bc0_d', phie_n_bc0_d),
+        ('phie_n_bc1_d', phie_n_bc1_d),
+        ('phis_n_bc0_d', phis_n_bc0_d),
+        ('phis_n_bc1_d', phis_n_bc1_d),
+        ('T_n_bc0_d', T_n_bc0_d),
+        ('T_n_bc1_d', T_n_bc1_d),
 
-        ('dTa_bc0', dTa_bc0),
-        ('dTa', dTa),
-        ('dTa_bcM', dTa_bcM),
+        ('T_a_bc0_d', T_a_bc0_d),
+        ('T_a_d', T_a_d),
+        ('T_a_bc1_d', T_a_bc1_d),
 
-        ('dTz_bc0', dTz_bc0),
-        ('dTz', dTz),
-        ('dTz_bcM', dTz_bcM)
+        ('T_z_bc0_d', T_z_bc0_d),
+        ('T_z_d', T_z_d),
+        ('T_z_bc1_d', T_z_bc1_d)
     ])
 
     return HashableDict(part)
 
 
 # @partial(jax.jit, static_argnums=(4,5,6))
-def compute_jac(gamma_p_vec, gamma_n_vec, part, peq, neq, Iapp):
+def compute_jac(gamma_p_vec, gamma_n_vec, part, Iapp):
+
     @jax.jit
-    def jacfn(U, Uold, cs_pe1, cs_ne1):
+    def jacfn(U, Uold, cs_pe1, cs_ne1, delta_t):
         
         Jnew = jnp.zeros([23, len(U)])
 
-        uvec_pe, uvec_sep, uvec_ne, \
-        Tvec_acc, Tvec_pe, Tvec_sep, Tvec_ne, Tvec_zcc, \
-        phie_pe, phie_sep, phie_ne, \
-        phis_pe, phis_ne, jvec_pe, jvec_ne, eta_pe, eta_ne = unpack(U)
+        ce_p, ce_o, ce_n, \
+        T_a, T_p, T_o, T_n, T_z, \
+        phie_p, phie_o, phie_n, \
+        phis_p, phis_n, \
+        j_p, j_n, \
+        eta_p, eta_n = unpack(U)
 
-        uvec_old_pe, uvec_old_sep, uvec_old_ne, \
-        Tvec_old_acc, Tvec_old_pe, Tvec_old_sep, Tvec_old_ne, Tvec_old_zcc, \
+        ce_p_old, ce_o_old, ce_n_old, \
+        T_a_old, T_p_old, T_o_old, T_n_old, T_z_old, \
         _, _, _, _, _, _, _, _, _ = unpack(Uold)
 
-        arg_up = [uvec_pe[0:dxP], uvec_pe[1:dxP + 1], uvec_pe[2:dxP + 2], Tvec_pe[0:dxP], Tvec_pe[1:dxP + 1], Tvec_pe[2:dxP + 2],
-                  jvec_pe[0:dxP], uvec_old_pe[1:dxP + 1]]
 
-        Jnew = build_dup(Jnew, part['dup'](*arg_up), dxA, dxP)
+        arg_up = [ce_p[0:dxP], ce_p[1:dxP + 1], ce_p[2:dxP + 2],
+                  T_p[0:dxP], T_p[1:dxP + 1], T_p[2:dxP + 2],
+                  j_p[0:dxP],
+                  ce_p_old[1:dxP + 1],
+                  delta_t*jnp.ones(dxP)]
+        Jnew = build_dup(Jnew, part['ce_p_d'](*arg_up), dxA, dxP)
 
-        arg_jp = [jvec_pe[0:dxP], uvec_pe[1:dxP + 1], Tvec_pe[1:dxP + 1], eta_pe[0:dxP], cs_pe1, gamma_p_vec,
-                  peq.cmax * jnp.ones([dxP, 1])]
-        Jnew = build_djp(Jnew, part['djp'](*arg_jp), dxA, dxP)
+        arg_jp = [j_p[0:dxP],
+                  ce_p[1:dxP + 1],
+                  T_p[1:dxP + 1],
+                  eta_p[0:dxP],
+                  cs_pe1,
+                  gamma_p_vec]
+        Jnew = build_djp(Jnew, part['j_p_d'](*arg_jp), dxA, dxP)
 
-        arg_etap = [eta_pe[0:dxP], phis_pe[1:dxP + 1], phie_pe[1:dxP + 1], Tvec_pe[1:dxP + 1], jvec_pe[0:dxP], cs_pe1,
-                    gamma_p_vec, peq.cmax * jnp.ones([dxP, 1])]
+        arg_etap = [eta_p[0:dxP],
+                    phis_p[1:dxP + 1],
+                    phie_p[1:dxP + 1],
+                    T_p[1:dxP + 1],
+                    j_p[0:dxP],
+                    cs_pe1,
+                    gamma_p_vec]
+        Jnew = build_detap(Jnew, part['eta_p_d'](*arg_etap), dxA, dxP)
 
-        Jnew = build_detap(Jnew, part['detap'](*arg_etap), dxA, dxP)
-        arg_phisp = [phis_pe[0:dxP], phis_pe[1:dxP + 1], phis_pe[2:dxP + 2], jvec_pe[0:dxP]]
+        arg_phisp = [phis_p[0:dxP], phis_p[1:dxP + 1], phis_p[2:dxP + 2],
+                     j_p[0:dxP]]
+        Jnew = build_dphisp(Jnew, part['phis_p_d'](*arg_phisp), dxA, dxP)
 
-        Jnew = build_dphisp(Jnew, part['dphisp'](*arg_phisp), dxA, dxP)
+        arg_phiep = [ce_p[0:dxP], ce_p[1:dxP + 1], ce_p[2:dxP + 2],
+                     phie_p[0:dxP], phie_p[1:dxP + 1], phie_p[2:dxP + 2],
+                     T_p[0:dxP], T_p[1:dxP + 1], T_p[2:dxP + 2],
+                     j_p[0:dxP]]
+        Jnew = build_dphiep(Jnew, part['phie_p_d'](*arg_phiep), dxA, dxP)
 
-        arg_phiep = [uvec_pe[0:dxP], uvec_pe[1:dxP + 1], uvec_pe[2:dxP + 2], phie_pe[0:dxP], phie_pe[1:dxP + 1],
-                     phie_pe[2:dxP + 2],
-                     Tvec_pe[0:dxP], Tvec_pe[1:dxP + 1], Tvec_pe[2:dxP + 2], jvec_pe[0:dxP]]
+        arg_Tp = [ce_p[0:dxP], ce_p[1:dxP + 1], ce_p[2:dxP + 2],
+                  phie_p[0:dxP], phie_p[2:dxP + 2],
+                  phis_p[0:dxP], phis_p[2:dxP + 2],
+                  T_p[0:dxP], T_p[1:dxP + 1], T_p[2:dxP + 2],
+                  j_p[0:dxP],
+                  eta_p[0:dxP],
+                  cs_pe1,
+                  gamma_p_vec,
+                  T_p_old[1:dxP + 1],
+                  delta_t*jnp.ones(dxP)]
+        Jnew = build_dTp(Jnew, part['T_p_d'](*arg_Tp), dxA, dxP)
 
-        Jnew = build_dphiep(Jnew, part['dphiep'](*arg_phiep), dxA, dxP)
 
-        # temperature_fast(self,un, uc, up, phien, phiep, phisn, phisp, Tn, Tc, Tp,j,eta, cs_1, gamma_c, cmax, Told):
-        arg_Tp = [uvec_pe[0:dxP], uvec_pe[1:dxP + 1], uvec_pe[2:dxP + 2],
-                  phie_pe[0:dxP], phie_pe[2:dxP + 2],
-                  phis_pe[0:dxP], phis_pe[2:dxP + 2],
-                  Tvec_pe[0:dxP], Tvec_pe[1:dxP + 1], Tvec_pe[2:dxP + 2],
-                  jvec_pe[0:dxP],
-                  eta_pe[0:dxP],
-                  cs_pe1, gamma_p_vec, peq.cmax * jnp.ones([dxP, 1]),
-                  Tvec_old_pe[1:dxP + 1]]
+        ce_p_bc0_d = part['ce_p_bc0_d'](ce_p[0], ce_p[1])
+        ce_p_bc1_d = part['ce_p_bc1_d'](ce_p[dxP], ce_p[dxP + 1],
+                                  T_p[dxP], T_p[dxP + 1],
+                                  ce_o[0], ce_o[1],
+                                  T_o[0], T_o[1])
 
-        Jnew = build_dTp(Jnew, part['dTp'](*arg_Tp), dxA, dxP)
+        phis_p_bc0_d = part['phis_p_bc0_d'](phis_p[0], phis_p[1], Iapp)
+        phis_p_bc1_d = part['phis_p_bc1_d'](phis_p[dxP], phis_p[dxP + 1], 0)
 
-        dup_bc0 = part['dup_bc0'](uvec_pe[0], uvec_pe[1])
-        dup_bcM = part['dup_bcM'](uvec_pe[dxP], uvec_pe[dxP + 1], Tvec_pe[dxP], Tvec_pe[dxP + 1],
-                               uvec_sep[0], uvec_sep[1], Tvec_sep[0], Tvec_sep[1])
+        phie_p_bc0_d = part['phie_p_bc0_d'](phie_p[0], phie_p[1])
+        phie_p_bc1_d = part['phie_p_bc1_d'](phie_p[dxP], phie_p[dxP + 1],
+                                        phie_o[0], phie_o[1],
+                                        ce_p[dxP], ce_p[dxP + 1],
+                                        ce_o[0], ce_o[1],
+                                        T_p[dxP], T_p[dxP + 1],
+                                        T_o[0], T_o[1])
 
-        dphisp_bc0 = part['dphisp_bc0'](phis_pe[0], phis_pe[1], Iapp)
-        dphisp_bcM = part['dphisp_bcM'](phis_pe[dxP], phis_pe[dxP + 1], 0)
+        T_p_bc0_d = part['T_p_bc0_d'](T_a[dxA], T_a[dxA + 1],
+                                  T_p[0], T_p[1])
+        T_p_bc1_d = part['T_p_bc1_d'](T_p[dxP], T_p[dxP + 1],
+                                  T_o[0], T_o[1])
 
-        dphiep_bc0 = part['dphiep_bc0'](phie_pe[0], phie_pe[1])
-        dphiep_bcM = part['dphiep_bcM'](phie_pe[dxP], phie_pe[dxP + 1], phie_sep[0], phie_sep[1],
-                                     uvec_pe[dxP], uvec_pe[dxP + 1], uvec_sep[0], uvec_sep[1],
-                                     Tvec_pe[dxP], Tvec_pe[dxP + 1], Tvec_sep[0], Tvec_sep[1])
 
-        dTp_bc0 = part['dTp_bc0'](Tvec_acc[dxA], Tvec_acc[dxA + 1], Tvec_pe[0], Tvec_pe[1])
-        dTp_bcM = part['dTp_bcM'](Tvec_pe[dxP], Tvec_pe[dxP + 1], Tvec_sep[0], Tvec_sep[1])
-
-        bc_p = dict([('u', jnp.concatenate((jnp.array(dup_bc0), jnp.array(dup_bcM)))),
-                     ('phis', jnp.concatenate((jnp.array(dphisp_bc0), jnp.array(dphisp_bcM)))),
-                     ('phie', jnp.concatenate((jnp.array(dphiep_bc0), jnp.array(dphiep_bcM)))),
-                     ('T', jnp.concatenate((jnp.array(dTp_bc0), jnp.array(dTp_bcM))))])
-
+        bc_p = dict([('u', jnp.concatenate((jnp.array(ce_p_bc0_d), jnp.array(ce_p_bc1_d)))),
+                     ('phis', jnp.concatenate((jnp.array(phis_p_bc0_d), jnp.array(phis_p_bc1_d)))),
+                     ('phie', jnp.concatenate((jnp.array(phie_p_bc0_d), jnp.array(phie_p_bc1_d)))),
+                     ('T', jnp.concatenate((jnp.array(T_p_bc0_d), jnp.array(T_p_bc1_d))))])
         Jnew = build_bc_p(Jnew, bc_p, dxA, dxP)
 
-        bc_s = part['bc_s'](uvec_sep[0], uvec_sep[1], uvec_pe[dxP], uvec_pe[dxP + 1])
-        Jnew = build_bc_s(Jnew, jnp.concatenate((jnp.array(bc_s), jnp.array(bc_s))), dxA, dxP, dxO)
-        dus = part['dus'](uvec_sep[0:dxO], uvec_sep[1:dxO + 1],
-                       uvec_sep[2:dxO + 2], Tvec_sep[0:dxO],
-                       Tvec_sep[1:dxO + 1], Tvec_sep[2:dxO + 2],
-                       uvec_old_sep[1:dxO + 1])
+        o_bc = part['o_bc'](ce_o[0], ce_o[1],
+                            ce_p[dxP], ce_p[dxP + 1])
+        Jnew = build_bc_s(Jnew, jnp.concatenate((jnp.array(o_bc), jnp.array(o_bc))), dxA, dxP, dxO)
 
-        Jnew = build_dus(Jnew, dus, dxA, dxP, dxO)
-        dphies = part['dphies'](uvec_sep[0:dxO], uvec_sep[1:dxO + 1],
-                             uvec_sep[2:dxO + 2],
-                             phie_sep[0:dxO], phie_sep[1:dxO + 1],
-                             phie_sep[2:dxO + 2],
-                             Tvec_sep[0:dxO], Tvec_sep[1:dxO + 1],
-                             Tvec_sep[2:dxO + 2])
-        Jnew = build_dphies(Jnew, dphies, dxA, dxP, dxO)
+        ce_o_d = part['ce_o_d'](ce_o[0:dxO], ce_o[1:dxO + 1], ce_o[2:dxO + 2],
+                          T_o[0:dxO], T_o[1:dxO + 1], T_o[2:dxO + 2],
+                          ce_o_old[1:dxO + 1],
+                          delta_t*jnp.ones(dxO))
+        Jnew = build_dus(Jnew, ce_o_d, dxA, dxP, dxO)
 
-        dTs = part['dTs'](uvec_sep[0:dxO], uvec_sep[1:dxO + 1],
-                       uvec_sep[2:dxO + 2],
-                       phie_sep[0:dxO], phie_sep[2:dxO + 2],
-                       Tvec_sep[0:dxO], Tvec_sep[1:dxO + 1],
-                       Tvec_sep[2:dxO + 2],
-                       Tvec_old_sep[1:dxO + 1])
+        phie_o_d = part['phie_o_d'](ce_o[0:dxO], ce_o[1:dxO + 1], ce_o[2:dxO + 2],
+                                phie_o[0:dxO], phie_o[1:dxO + 1], phie_o[2:dxO + 2],
+                                T_o[0:dxO], T_o[1:dxO + 1], T_o[2:dxO + 2])
+        Jnew = build_dphies(Jnew, phie_o_d, dxA, dxP, dxO)
 
-        Jnew = build_dTs(Jnew, dTs, dxA, dxP, dxO)
+        T_o_d = part['T_o_d'](ce_o[0:dxO], ce_o[1:dxO + 1], ce_o[2:dxO + 2],
+                          phie_o[0:dxO], phie_o[2:dxO + 2],
+                          T_o[0:dxO], T_o[1:dxO + 1], T_o[2:dxO + 2],
+                          T_o_old[1:dxO + 1],
+                          delta_t*jnp.ones(dxO))
+        Jnew = build_dTs(Jnew, T_o_d, dxA, dxP, dxO)
 
-        dun_bc0 = part['dun_bc0'](uvec_ne[0], uvec_ne[1], Tvec_ne[0], Tvec_ne[1],
-                               uvec_sep[dxO], uvec_sep[dxO + 1], Tvec_sep[dxO], Tvec_sep[dxO + 1])
-        dun = part['dun'](uvec_ne[0:dxN], uvec_ne[1:dxN + 1],
-                       uvec_ne[2:dxN + 2],
-                       Tvec_ne[0:dxN], Tvec_ne[1:dxN + 1],
-                       Tvec_ne[2:dxN + 2],
-                       jvec_ne[0:dxN], uvec_old_ne[1:dxN + 1])
+        ce_n_bc0_d = part['ce_n_bc0_d'](ce_n[0], ce_n[1],
+                                  T_n[0], T_n[1],
+                                  ce_o[dxO], ce_o[dxO + 1],
+                                  T_o[dxO], T_o[dxO + 1])
+        ce_n_d = part['ce_n_d'](ce_n[0:dxN], ce_n[1:dxN + 1], ce_n[2:dxN + 2],
+                          T_n[0:dxN], T_n[1:dxN + 1], T_n[2:dxN + 2],
+                          j_n[0:dxN],
+                          ce_n_old[1:dxN + 1],
+                          delta_t*jnp.ones(dxP))
+        ce_n_bc1_d = part['ce_n_bc1_d'](ce_n[dxN], ce_n[dxN + 1])
+        Jnew = build_dun(Jnew, ce_n_d, dxA, dxP, dxO, dxN)
 
-        dun_bcM = part['dun_bcM'](uvec_ne[dxN], uvec_ne[dxN + 1])
-        Jnew = build_dun(Jnew, dun, dxA, dxP, dxO, dxN)
+        arg_jn = [j_n[0:dxN],
+                  ce_n[1:dxN + 1],
+                  T_n[1:dxN + 1],
+                  eta_n[0:dxP],
+                  cs_ne1,
+                  gamma_n_vec]
+        Jnew = build_djn(Jnew, part['j_n_d'](*arg_jn), dxA, dxP, dxO, dxN)
 
-        arg_jn = [jvec_ne[0:dxN], uvec_ne[1:dxN + 1], Tvec_ne[1:dxN + 1], eta_ne[0:dxP], cs_ne1, gamma_n_vec,
-                  neq.cmax * jnp.ones([dxN, 1])]
+        arg_etan = [eta_n[0:dxN],
+                    phis_p[1:dxN + 1],
+                    phie_n[1:dxN + 1],
+                    T_n[1:dxN + 1],
+                    j_n[0:dxN],
+                    cs_ne1,
+                    gamma_n_vec]
+        Jnew = build_detan(Jnew, part['eta_n_d'](*arg_etan), dxA, dxP, dxO, dxN)
 
-        Jnew = build_djn(Jnew, part['djn'](*arg_jn), dxA, dxP, dxO, dxN)
+        arg_phisn = [phis_n[0:dxN], phis_n[1:dxN + 1], phis_n[2:dxN + 2], 
+                     j_n[0:dxN]]
+        phis_n_bc0_d = part['phis_n_bc0_d'](phis_n[0], phis_n[1], 0)
+        phis_n_bc1_d = part['phis_n_bc1_d'](phis_n[dxN], phis_n[dxN + 1], Iapp)
+        Jnew = build_dphisn(Jnew, part['phis_n_d'](*arg_phisn), dxA, dxP, dxO, dxN)
 
-        arg_etan = [eta_ne[0:dxN], phis_pe[1:dxN + 1], phie_ne[1:dxN + 1], Tvec_ne[1:dxN + 1], jvec_ne[0:dxN], cs_ne1,
-                    gamma_n_vec,
-                    neq.cmax * jnp.ones([dxN, 1])]
+        arg_phien = [ce_n[0:dxN], ce_n[1:dxN + 1], ce_n[2:dxN + 2],
+                     phie_n[0:dxN], phie_n[1:dxN + 1], phie_n[2:dxN + 2],
+                     T_n[0:dxN], T_n[1:dxN + 1], T_n[2:dxN + 2],
+                     j_n[0:dxN]]
+        Jnew = build_dphien(Jnew, part['phie_n_d'](*arg_phien), dxA, dxP, dxO, dxN)
 
-        Jnew = build_detan(Jnew, part['detan'](*arg_etan), dxA, dxP, dxO, dxN)
+        phie_n_bc0_d = part['phie_n_bc0_d'](phie_n[0], phie_n[1],
+                                        phie_o[dxO], phie_o[dxO + 1],
+                                        ce_n[0], ce_n[1],
+                                        ce_o[dxO], ce_o[dxO + 1],
+                                        T_n[0], T_n[1],
+                                        T_o[dxO], T_o[dxO + 1])
+        phie_n_bc1_d = part['phie_n_bc1_d'](phie_n[dxN], phie_n[dxN + 1])
+        arg_Tn = [ce_n[0:dxN], ce_n[1:dxN + 1], ce_n[2:dxN + 2],
+                  phie_n[0:dxN], phie_n[2:dxN + 2],
+                  phis_n[0:dxN], phis_n[2:dxN + 2],
+                  T_n[0:dxN], T_n[1:dxN + 1], T_n[2:dxN + 2],
+                  j_n[0:dxN],
+                  eta_n[0:dxN],
+                  cs_ne1,
+                  gamma_n_vec,
+                  T_n_old[1:dxN + 1],
+                  delta_t*jnp.ones(dxN)]
+        Jnew = build_dTn(Jnew, part['T_n_d'](*arg_Tn), dxA, dxP, dxO, dxN)
 
-        arg_phisn = [phis_ne[0:dxN], phis_ne[1:dxN + 1], phis_ne[2:dxN + 2], jvec_ne[0:dxN]]
-
-        dphisn_bc0 = part['dphisn_bc0'](phis_ne[0], phis_ne[1], 0)
-        dphisn_bcM = part['dphisn_bcM'](phis_ne[dxN], phis_ne[dxN + 1], Iapp)
-
-        Jnew = build_dphisn(Jnew, part['dphisn'](*arg_phisn), dxA, dxP, dxO, dxN)
-        arg_phien = [uvec_ne[0:dxN], uvec_ne[1:dxN + 1], uvec_ne[2:dxN + 2], phie_ne[0:dxN], phie_ne[1:dxN + 1],
-                     phie_ne[2:dxN + 2],
-                     Tvec_ne[0:dxN], Tvec_ne[1:dxN + 1], Tvec_ne[2:dxN + 2], jvec_ne[0:dxN]]
-
-        Jnew = build_dphien(Jnew, part['dphien'](*arg_phien), dxA, dxP, dxO, dxN)
-        dphien_bc0 = part['dphien_bc0'](phie_ne[0], phie_ne[1], phie_sep[dxO], phie_sep[dxO + 1], \
-                                                                   uvec_ne[0], uvec_ne[1], uvec_sep[dxO], uvec_sep[dxO + 1], \
-                                                                   Tvec_ne[0], Tvec_ne[1], Tvec_sep[dxO], Tvec_sep[dxO + 1])
-        dphien_bcM = part['dphien_bcM'](phie_ne[dxN], phie_ne[dxN + 1])
-
-        arg_Tn = [uvec_ne[0:dxN], uvec_ne[1:dxN + 1], uvec_ne[2:dxN + 2],
-                  phie_ne[0:dxN], phie_ne[2:dxN + 2], \
-                  phis_ne[0:dxN], phis_ne[2:dxN + 2],
-                  Tvec_ne[0:dxN], Tvec_ne[1:dxN + 1], Tvec_ne[2:dxN + 2],
-                  jvec_ne[0:dxN], \
-                  eta_ne[0:dxN],
-                  cs_ne1, gamma_n_vec, neq.cmax * jnp.ones([dxN, 1]),
-                  Tvec_old_ne[1:dxN + 1]]
-
-        Jnew = build_dTn(Jnew, part['dTn'](*arg_Tn), dxA, dxP, dxO, dxN)
-        dTn_bc0 = part['dTn_bc0'](Tvec_sep[dxO], Tvec_sep[dxO + 1], Tvec_ne[0], Tvec_ne[1])
-        dTn_bcM = part['dTn_bcM'](Tvec_ne[dxN], Tvec_ne[dxN + 1], Tvec_zcc[0], Tvec_zcc[1])
-        bc_n = dict([('u', jnp.concatenate((jnp.array(dun_bc0), jnp.array(dun_bcM)))),
-                     ('phis', jnp.concatenate((jnp.array(dphisn_bc0), jnp.array(dphisn_bcM)))),
-                     ('phie', jnp.concatenate((jnp.array(dphien_bc0), jnp.array(dphien_bcM)))),
-                     ('T', jnp.concatenate((jnp.array(dTn_bc0), jnp.array(dTn_bcM))))
+        T_n_bc0_d = part['T_n_bc0_d'](T_o[dxO], T_o[dxO + 1],
+                                  T_n[0], T_n[1])
+        T_n_bc1_d = part['T_n_bc1_d'](T_n[dxN], T_n[dxN + 1],
+                                  T_z[0], T_z[1])
+        bc_n = dict([('u', jnp.concatenate((jnp.array(ce_n_bc0_d), jnp.array(ce_n_bc1_d)))),
+                     ('phis', jnp.concatenate((jnp.array(phis_n_bc0_d), jnp.array(phis_n_bc1_d)))),
+                     ('phie', jnp.concatenate((jnp.array(phie_n_bc0_d), jnp.array(phie_n_bc1_d)))),
+                     ('T', jnp.concatenate((jnp.array(T_n_bc0_d), jnp.array(T_n_bc1_d))))
                      ])
         Jnew = build_bc_n(Jnew, bc_n, dxA, dxP, dxO, dxN)
 
-        dTa_bc0 = part['dTa_bc0'](Tvec_acc[0], Tvec_acc[1])
-        dTa = part['dTa'](Tvec_acc[0:dxA], Tvec_acc[1:dxA + 1],
-                                                                        Tvec_acc[2:dxA + 2],
-                                                                        Tvec_old_acc[1:dxA + 1])
-        dTa_bcM = part['dTa_bcM'](Tvec_acc[dxA], Tvec_acc[dxA + 1], Tvec_pe[0], Tvec_pe[1])
+        T_a_bc0_d = part['T_a_bc0_d'](T_a[0], T_a[1])
+        T_a_d = part['T_a_d'](T_a[0:dxA], T_a[1:dxA + 1], T_a[2:dxA + 2], 
+                          T_a_old[1:dxA + 1],
+                          delta_t*jnp.ones(dxA))
+        T_a_bc1_d = part['T_a_bc1_d'](T_a[dxA], T_a[dxA + 1],
+                                  T_p[0], T_p[1])
+        T_z_bc0_d = part['T_z_bc0_d'](T_n[dxN], T_n[dxN + 1],
+                                  T_z[0], T_z[1])
+        T_z_d = part['T_z_d'](T_z[0:dxZ], T_z[1:dxZ + 1], T_z[2:dxZ + 2],
+                          T_z_old[1:dxZ + 1],
+                          delta_t*jnp.ones(dxZ))
+        T_z_bc1_d = part['T_z_bc1_d'](T_z[dxZ], T_z[dxZ + 1])
+        Jnew = build_dTa(Jnew, T_a_d, dxA)
+        Jnew = build_dTz(Jnew, T_z_d, dxA, dxP, dxO, dxN, dxZ)
 
-        dTz_bc0 = part['dTz_bc0'](Tvec_ne[dxN], Tvec_ne[dxN + 1], Tvec_zcc[0], Tvec_zcc[1])
-        dTz = part['dTz'](Tvec_zcc[0:dxZ], Tvec_zcc[1:dxZ + 1],
-                                                                        Tvec_zcc[2:dxZ + 2],
-                                                                        Tvec_old_zcc[1:dxZ + 1])
-        dTz_bcM = part['dTz_bcM'](Tvec_zcc[dxZ], Tvec_zcc[dxZ + 1])
-
-        Jnew = build_dTa(Jnew, dTa, dxA)
-        Jnew = build_dTz(Jnew, dTz, dxA, dxP, dxO, dxN, dxZ)
         bc_acc = dict([
-            ('acc', jnp.concatenate((jnp.array(dTa_bc0), jnp.array(dTa_bcM)))),
-            ('zcc', jnp.concatenate((jnp.array(dTz_bc0), jnp.array(dTz_bcM))))
+            ('acc', jnp.concatenate((jnp.array(T_a_bc0_d), jnp.array(T_a_bc1_d)))),
+            ('zcc', jnp.concatenate((jnp.array(T_z_bc0_d), jnp.array(T_z_bc1_d))))
         ])
         Jnew = build_bc_cc(Jnew, bc_acc, dxA, dxP, dxO, dxN, dxZ)
+
         return Jnew
+    
     return jacfn
 
 

@@ -2,7 +2,7 @@ from jax.config import config
 config.update("jax_enable_x64", True)
 
 from globalValues import T_ref, h
-from settings import delta_t, dxA, dxZ
+from settings import dxA, dxZ #, delta_t
 
 class CurrentCollectorEquation:
     
@@ -16,15 +16,13 @@ class CurrentCollectorEquation:
             self.M = dxA
         elif constants.tipo == 'z':
             self.M = dxZ
-        self.hx = self.l/self.M;
-        self.delta_t=delta_t
+        self.hx = self.l/self.M
+        #self.delta_t=delta_t
         self.Iapp = Iapp
     
-    def temperature(self,Tn,Tc,Tp, Told):
+    def temperature(self,Tn,Tc,Tp,Told,delta_t):
         hx = self.hx
-#        ans = (Tc - Told) -  ( self.lam*( Tn - 2*Tc + Tp)/hx**2 + \
-#        + Iapp**2/self.sigeff )*(delta_t/(self.rho*self.Cp))
-        ans = (Tc - Told) - (self.lam*(Tn - 2*Tc + Tp)/hx**2 + self.Iapp**2/self.sigeff)*(self.delta_t/(self.rho*self.Cp))
+        ans = (Tc - Told) - (self.lam*(Tn - 2*Tc + Tp)/hx**2 + self.Iapp**2/self.sigeff)*(delta_t/(self.rho*self.Cp))
         return ans.reshape()
     
     """ boundary condition """

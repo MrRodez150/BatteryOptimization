@@ -9,7 +9,7 @@ from settings import tolerance, maxit
 def reorder_vec(y, idx):
     return y[idx]
 
-def newton(fn_fast, jac_fn_fast, U, cs_pe1, cs_ne1, gamma_p, gamma_n, idx, re_idx, tol=tolerance, verbose=False):
+def newton(fn_fast, jac_fn_fast, U, cs_pe1, cs_ne1, gamma_p, gamma_n, idx, re_idx, delta_t, tol=tolerance, verbose=False):
     count = 0
     res = 100
     fail = ''
@@ -17,8 +17,8 @@ def newton(fn_fast, jac_fn_fast, U, cs_pe1, cs_ne1, gamma_p, gamma_n, idx, re_id
 
     while (count < maxit and res > tol):
         
-        J = jac_fn_fast(U, Uold, cs_pe1, cs_ne1).block_until_ready()
-        y = fn_fast(U, Uold, cs_pe1, cs_ne1, gamma_p, gamma_n).block_until_ready()
+        J = jac_fn_fast(U, Uold, cs_pe1, cs_ne1, delta_t).block_until_ready()
+        y = fn_fast(U, Uold, cs_pe1, cs_ne1, gamma_p, gamma_n, delta_t).block_until_ready()
         
         y = reorder_vec(y, idx).block_until_ready();
 
