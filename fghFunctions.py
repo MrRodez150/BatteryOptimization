@@ -42,7 +42,7 @@ def objectiveFunctions(data_a,data_p,data_o,data_n,data_z,data_e,
     Tavg = maxTempAvg(Temps)
     P = batteryPrice(data_a,data_p,data_o,data_n,data_z,data_e,Ns,Np,A)
 
-    return [Es, SEIg, Tavg, P]
+    return [-Es, SEIg, Tavg, P]
 
 def ineqConstraintFunctions(Vpack,Ns,voltages, efp, efo, efn):
     Vcell = np.mean(voltages)

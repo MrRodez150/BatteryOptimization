@@ -12,8 +12,9 @@ from precompute import precompute
 from p2dSolver import p2d_reorder_fn
 from fghFunctions import objectiveFunctions, ineqConstraintFunctions
 from auxiliaryExp import area
+from plotter import PlotTimeChange5vrs
 
-def p2d_simulate(x, Vpack, Ipack, verbose=False):
+def p2d_simulate(x, Vpack, Ipack, verbose=False, plot=False):
 
     start = timeit.default_timer()
 
@@ -77,4 +78,9 @@ def p2d_simulate(x, Vpack, Ipack, verbose=False):
     end = timeit.default_timer()
     time = [end-start, mid-start, end-mid]
 
-    return objFun, conFun, time, fail
+    if plot:
+        fig = PlotTimeChange5vrs(times,voltage,temp,flux,ovpot,tempN)
+        return objFun, conFun, time, fail, fig
+    
+    else:
+        return objFun, conFun, time, fail

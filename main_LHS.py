@@ -5,31 +5,37 @@ from smt.sampling_methods import LHS
 from main_p2d import p2d_simulate
 
 #Aplication requirements
-while True:
+while True:   
     app = input("Application required?  EV/DR/CP: ")
 
     if app == 'EV':
         Vpack = 48
         Iapp = -80
+        Ns_R = range(11,16)
         break
     elif app == 'DR':
         Vpack = 15
         Iapp = -22
+        Ns_R = range(4,5)
         break
     elif app == 'CP':
         Vpack = 3.7
         Iapp = -3
+        Ns_R = range(1,101)
         break
     else:
         print('Invalid Application, try again!')
 
 #Experiment configuration
-files = 0
+start_file = int(input("Starting file number: "))
+end_file = int(input("End file number: "))
+saveRate = int(input("Samples per file: "))
 
-num_samples = 100_000
-saveRate = 100
+num_samples = saveRate * (end_file - start_file + 1)
 
-path = "Experiments/Tests/"
+file = start_file
+
+path = "Experiments/LandscapeMac/"
 name = f'HLS_{Vpack}_{abs(Iapp)}_'
 
 def saveDoc(info, count):
@@ -78,7 +84,7 @@ for x in samples:
         "efo": x[11],
         "efn": x[12],
         "mat": random.choice(['LCO','LFP']),
-        "Ns": random.choice(range(1,101)),
+        "Ns": random.choice(Ns_R),
         "Np": random.choice(range(1,101)),
     }
     
@@ -111,12 +117,11 @@ for x in samples:
 
     if count%saveRate == 0 or count == num_samples:
         
-        saveDoc(docInfo,files)
+        saveDoc(docInfo,file)
 
-        files += 1
+        file += 1
         
         docInfo = []
 
-    print(f'Done {count} out of {num_samples} total points in {files} files.')
-    print(f'Failed: {failed}')
+    print(f'{app}\t{count}/{num_samples-count}|{failed}\t{file}')
 
