@@ -9,48 +9,11 @@ from pymoo.indicators.hv import HV
 from smt.sampling_methods import LHS
 from pymoo.util.ref_dirs import get_reference_directions
 
-from main_p2d import p2d_simulate
-#from dumeeProblem import p2d_simulate
+#from main_p2d import p2d_simulate
+from dumeeProblem import p2d_simulate
 from indicators import individualContribution
 from indicators import SMS, R2, IGDplus, EpsPlus, DeltaP
-from settings import nadir
-
-"""
-==================================================================================================================================================================
-Global values section
-==================================================================================================================================================================
-"""
-
-var_keys = ['C', 'la', 'lp', 'lo', 'ln', 'lz', 'Lh', 'Rp', 'Rn', 'Rcell', 'efp', 'efo', 'efn', 'mat', 'Ns', 'Np']
-oFn_keys = ['SpecificEnergy', 'SEIGrouth', 'TempIncrease', 'Price']
-cFn_keys = ['UpperViolation', 'LowerViolation', 'VolFracViolation']
-
-limits = np.array([[0.2, 4.0],
-                   [12e-6, 30e-6],
-                   [40e-6, 250e-6],
-                   [10e-6, 100e-6],
-                   [40e-6, 150e-6],
-                   [12e-6, 30e-6],
-                   [40e-3, 100e-3],
-                   [0.2e-6, 20e-6],
-                   [0.5e-6, 50e-6],
-                   [4e-3, 25e-3],
-                   [0.01, 0.6],
-                   [0.01, 0.6],
-                   [0.01, 0.6]])
-
-sampling = LHS(xlimits=limits)
-
-limits = {var_keys[i]: limits[i] for i in range(len(limits))}
-
-e = [[1,      1e-12,  1e-12,  1e-12],
-     [1e-12,  1,      1e-12,  1e-12],
-     [1e-12,  1e-12,  1,      1e-12],
-     [1e-12,  1e-12,  1e-12,  1    ],
-     [0.25,   0.25,   0.25,   0.25 ]]
-
-ref_dirs = get_reference_directions("energy", 4, 40, seed=1)
-ref_dirs = np.where(ref_dirs==0, 1e-12, ref_dirs)
+from settings import nadir, max_presure
 
 """
 ==================================================================================================================================================================
@@ -246,6 +209,8 @@ Contribution
 ==================================================================================================================================================================
 """
 def lessContribution(indicator, Rt, ref, indexes):
+    if indicator.name=='HV':
+        ref = np.min(Rt, axis=0)
     g_contr = indicator(Rt, ref)
     index = np.argmin(individualContribution(indicator,g_contr,Rt,ref))
     return indexes[index]
@@ -277,7 +242,7 @@ def obtainReference_weightPointSelection(P:pd.DataFrame, presure=5e2):
 
     return ref
 
-def achivement(f, f_star, c, e, presure=1):
+def achivement(f, f_star, c, e, presure):
 
     ref = np.empty((len(e),len(f[0])))
     ref_index = np.empty(len(e))
@@ -295,6 +260,8 @@ def achivement(f, f_star, c, e, presure=1):
                 ref[i] = f[h]
                 ref_index[i] = h
                 best_max = maximum
+
+    ref_index = np.unique(ref_index).astype(int)
 
     return ref, ref_index
 
@@ -316,7 +283,13 @@ def obtainReference_aproxContruction(P:pd.DataFrame):
 
     f_star = np.min(f, axis=0)
 
-    ref_pnts, _ = achivement(f, f_star, c, e)
+    p = max_presure
+    index = []
+    while len(index)<len(oFn_keys)+1:
+        ref_pnts, index = achivement(f, f_star, c, e, p)
+        p *= 0.1
+        if p<1:
+            break
 
     alpha = 1
     y = obtain_aprox(ref_pnts, ref_dirs, alpha)
@@ -441,7 +414,7 @@ def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60
         
         end = timeit.default_timer()
 
-        update_result(P, g+1, (g+2)*n_islands*f_mig, end-start, samples)
+        update_result(P, ref, g+1, (g+2)*n_islands*f_mig, end-start, samples)
     
     print('All done!')
 
@@ -452,7 +425,7 @@ def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60
 File managment
 ==================================================================================================================================================================
 """
-def update_result(P:pd.DataFrame, gen, n_eval, time, samples):
+def update_result(P:pd.DataFrame, ref, gen, n_eval, time, samples):
     
     P.to_csv(path + expName + f'_pop_{gen}.csv', index=False)
 
@@ -470,9 +443,17 @@ def update_result(P:pd.DataFrame, gen, n_eval, time, samples):
 
     res = [gen, 
            n_eval, 
-           ind(f), 
+           ind_HV(f),
+           ind_R2(f, ref),
+           ind_IGDp(f, ref),
+           ind_Ep(f, ref),
+           ind_Dp(f, ref),
            len(valid), 
-           ind(valid), 
+           ind_HV(valid),
+           ind_R2(valid, ref),
+           ind_IGDp(valid, ref),
+           ind_Ep(valid, ref),
+           ind_Dp(valid, ref),
            np.min(c), 
            np.mean(c), 
            np.max(c), 
@@ -489,59 +470,101 @@ def update_result(P:pd.DataFrame, gen, n_eval, time, samples):
 Run section
 ==================================================================================================================================================================
 """
-ind = HV(ref_point=np.array(nadir))
 
-path = "Experiments/IMIA/"
+def IMIA_run(pth = "Experiments/IMIA/"):
+    
+    global Vpack, Iapp, path, expName, var_keys, oFn_keys, cFn_keys, limits, sampling, e, ref_dirs, ind_HV, ind_R2, ind_IGDp, ind_Ep, ind_Dp
+    
+    path =  pth
 
-while True:   
-    app = input("Application required?  EV/DR/CP: ")
+    var_keys = ['C', 'la', 'lp', 'lo', 'ln', 'lz', 'Lh', 'Rp', 'Rn', 'Rcell', 'efp', 'efo', 'efn', 'mat', 'Ns', 'Np']
+    oFn_keys = ['SpecificEnergy', 'SEIGrouth', 'TempIncrease', 'Price']
+    cFn_keys = ['UpperViolation', 'LowerViolation', 'VolFracViolation']
 
-    if app == 'EV':
-        Vpack = 48
-        Iapp = -80
-        break
-    elif app == 'DR':
-        Vpack = 15
-        Iapp = -22
-        break
-    elif app == 'CP':
-        Vpack = 3.7
-        Iapp = -3
-        break
-    else:
-        print('Invalid Application, try again!')
+    limits = np.array([[0.2, 4.0],
+                    [12e-6, 30e-6],
+                    [40e-6, 250e-6],
+                    [10e-6, 100e-6],
+                    [40e-6, 150e-6],
+                    [12e-6, 30e-6],
+                    [40e-3, 100e-3],
+                    [0.2e-6, 20e-6],
+                    [0.5e-6, 50e-6],
+                    [4e-3, 25e-3],
+                    [0.01, 0.6],
+                    [0.01, 0.6],
+                    [0.01, 0.6]])
 
-exp = int(input("Experiment number: "))
+    sampling = LHS(xlimits=limits)
 
-expName = f'IMIA_V{Vpack}_I{abs(Iapp)}_E{exp}'
-print(expName)
+    limits = {var_keys[i]: limits[i] for i in range(len(limits))}
 
-file_found=False
+    e = [[1,      1e-12,  1e-12,  1e-12],
+        [1e-12,  1,      1e-12,  1e-12],
+        [1e-12,  1e-12,  1,      1e-12],
+        [1e-12,  1e-12,  1e-12,  1    ],
+        [0.25,   0.25,   0.25,   0.25 ]]
+
+    ref_dirs = get_reference_directions("energy", 4, 40, seed=1)
+    ref_dirs = np.where(ref_dirs==0, 1e-12, ref_dirs)
+
+    ind_HV = HV(ref_point=np.array(nadir))
+    ind_R2 = R2()
+    ind_IGDp = IGDplus()
+    ind_Ep = EpsPlus()
+    ind_Dp = DeltaP()
+
+    while True:   
+        app = input("Application required?  EV/DR/CP: ")
+
+        if app == 'EV':
+            Vpack = 48
+            Iapp = -80
+            break
+        elif app == 'DR':
+            Vpack = 15
+            Iapp = -22
+            break
+        elif app == 'CP':
+            Vpack = 3.7
+            Iapp = -3
+            break
+        else:
+            print('Invalid Application, try again!')
+
+    exp = int(input("Experiment number: "))
+
+    expName = f'IMIA_V{Vpack}_I{abs(Iapp)}_E{exp}'
+    print(expName)
+
+    file_found=False
 
 
 
-try:
-    res = pd.read_csv(path + expName + '_res.csv')
-    print('Checkpoint found, resuming')
-    file_found = True 
-
-except FileNotFoundError:
-    print('No checkpoint found, starting over')
-    with open(path + expName + '_res.csv', 'a') as resf:
-            writer = csv.writer(resf)
-            writer.writerow(["n_Gen", "n_Eval", "general_HV", "n_valid", "valid_HV", "min_CV", "mean_CV", "max_CV", "time"])
-
-if file_found==True:
-    s_gen = res['n_Gen'].max()
     try:
-        P = pd.read_csv(path + expName + f'_pop_{s_gen}.csv')
+        res = pd.read_csv(path + expName + '_res.csv')
+        print('Checkpoint found, resuming')
+        file_found = True 
+
     except FileNotFoundError:
-        P = None
-        s_gen = 0
-    P = IMIA([SMS(),R2(),IGDplus(),EpsPlus(),DeltaP()], P=P, start_gen=s_gen, verbose=True)
+        print('No checkpoint found, starting over')
+        with open(path + expName + '_res.csv', 'a') as resf:
+                writer = csv.writer(resf)
+                writer.writerow(["n_Gen", "n_Eval", "g_HV", "g_R2", "g_IGD+", "g_e+", "g_Dp", "n_valid", "v_HV", "v_R2", "v_IGD+", "v_e+", "v_Dp", "min_CV", "mean_CV", "max_CV", "time"])
 
-else:
-    P = IMIA([SMS(),R2(),IGDplus(),EpsPlus(),DeltaP()], verbose=True)
+    if file_found==True:
+        s_gen = res['n_Gen'].max()
+        try:
+            P = pd.read_csv(path + expName + f'_pop_{s_gen}.csv')
+        except FileNotFoundError:
+            P = None
+            s_gen = 0
+        P = IMIA([SMS(),R2(),IGDplus(),EpsPlus(),DeltaP()], P=P, start_gen=s_gen, verbose=True)
 
-P.to_csv(path + expName + f'_pop_final', index=False)
-print(P)
+    else:
+        P = IMIA([SMS(),R2(),IGDplus(),EpsPlus(),DeltaP()], verbose=True)
+
+    P.to_csv(path + expName + f'_pop_final', index=False)
+    print(P)
+
+IMIA_run()

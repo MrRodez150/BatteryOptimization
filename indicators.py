@@ -9,16 +9,15 @@ from settings import nadir
 
 
 class SMS():
-    def __init__(self, ref_point=nadir):
+    def __init__(self):
         self.pf_ref = False
-        self.ref = ref_point
         self.name = 'HV'
     
-    def __call__(self, F, pf):
-        return self._do(F)
+    def __call__(self, F, ref):
+        return self._do(F, ref)
     
-    def _do(self, F):
-        ind = HV(ref_point=self.ref,nds=False)
+    def _do(self, F, ref):
+        ind = HV(ref_point=ref,nds=False)
         return ind(F)
 
 class R2():

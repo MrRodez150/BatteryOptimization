@@ -31,5 +31,8 @@ maxit=10;
 cutOff = 2.7;
 
 global nadir
+global max_presure
 
 nadir = [0.0, 5e-15, 20.0, 4e6];
+
+max_presure = 5e6;
