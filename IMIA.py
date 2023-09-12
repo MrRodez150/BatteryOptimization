@@ -539,8 +539,6 @@ def IMIA_run(pth = "Experiments/IMIA/"):
 
     file_found=False
 
-
-
     try:
         res = pd.read_csv(path + expName + '_res.csv')
         print('Checkpoint found, resuming')
