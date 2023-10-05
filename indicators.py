@@ -41,12 +41,12 @@ class R2():
         for w in self.weights:
             val0 = -np.inf
             for a in F:
-                val = self.unary_func(a,w)
+                val = self.unary_func(a,w)[0][0]
                 if val > val0:
                     val0 = val
             res += val0
 
-        return res[0][0]/len(self.weights)
+        return res/len(self.weights)
     
 class IGDplus():
     def __init__(self):

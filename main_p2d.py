@@ -1,6 +1,6 @@
-import jax.numpy as jnp
 from jax.config import config
 config.update('jax_enable_x64', True)
+import numpy as np
 
 import timeit
 
@@ -73,7 +73,7 @@ def p2d_simulate(x, Vpack, Ipack, verbose=False, plot=False):
                                 Icell, Np, Ns, area(Lh,la+lp+lo+ln+lz,Rcell), 
                                 voltage, temp, flux, ovpot, tempN, times)
 
-    conFun = ineqConstraintFunctions(Vpack,Ns,voltage,efp,efo,efn)
+    conFun = ineqConstraintFunctions(Vpack,Ns,np.mean(voltage),efp,efo,efn)
 
     end = timeit.default_timer()
     time = [end-start, mid-start, end-mid]

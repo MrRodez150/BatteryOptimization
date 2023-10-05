@@ -1,6 +1,7 @@
 import numpy as np
 
 from fghFunctions import ineqConstraintFunctions
+from settings import nadir
 
 def p2d_simulate(x, Vpack, Ipack):
 
@@ -26,7 +27,7 @@ def p2d_simulate(x, Vpack, Ipack):
     Icell = Ipack * C / Np
 
     #Construction of the battery
-    objFun = list(np.array([-(la+lz*efp),lp/Lh+efo,lo*Lh*efn,ln/efn])*abs(Icell)*Rcell*Rp*Rn)
+    objFun = list(np.array(nadir) - (np.array([(la+lz*efp),lp/Lh+efo,lo*Lh*efn,ln/efn])*abs(Icell)*Rcell*Rp*Rn))
 
     conFun = ineqConstraintFunctions(Vpack,Ns,np.random.rand(10),efp,efo,efn)
 

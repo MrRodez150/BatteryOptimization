@@ -44,9 +44,8 @@ def objectiveFunctions(data_a,data_p,data_o,data_n,data_z,data_e,
 
     return [-Es, SEIg, Tavg, P]
 
-def ineqConstraintFunctions(Vpack,Ns,voltages, efp, efo, efn):
-    Vcell = np.mean(voltages)
-
+def ineqConstraintFunctions(Vpack,Ns,Vcell, efp, efo, efn):
+    
     V_upper = Vcell*Ns - 1.05*Vpack
     V_lower = 0.95*Vpack - Vcell*Ns
 
@@ -54,8 +53,7 @@ def ineqConstraintFunctions(Vpack,Ns,voltages, efp, efo, efn):
 
     return [V_upper, V_lower, volFrac]
 
-def eqConsctraintFunctions(Vpack,Ns,voltages):
-    Vcell = np.mean(voltages)
+def eqConsctraintFunctions(Vpack,Ns,Vcell):
 
     V_eq = Vcell*Ns - Vpack
 

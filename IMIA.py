@@ -9,37 +9,11 @@ from pymoo.indicators.hv import HV
 from smt.sampling_methods import LHS
 from pymoo.util.ref_dirs import get_reference_directions
 
-#from main_p2d import p2d_simulate
-from dumeeProblem import p2d_simulate
-from indicators import individualContribution
+
+from surr_P2D import BatteryP2D
 from indicators import SMS, R2, IGDplus, EpsPlus, DeltaP
-from settings import nadir, max_presure
-
-"""
-==================================================================================================================================================================
-Evaluate
-==================================================================================================================================================================
-"""
-
-def evaluate(x):
-    oFn, cFn, _, fail = p2d_simulate(x, Vpack, Iapp)
-
-    if (fail[0] != ''):
-        oFn = nadir
-
-    res = {
-        "SpecificEnergy": oFn[0],
-        "SEIGrouth": oFn[1],
-        "TempIncrease": oFn[2],
-        "Price": oFn[3],
-        "UpperViolation": cFn[0],
-        "LowerViolation": cFn[1],
-        "VolFracViolation": cFn[2],
-    }
-    
-    res.update(x)
-
-    return res
+from settings import nadir, var_keys, oFn_keys, cFn_keys, limits
+from IMIA_utils import generate_offspring, nonDomSort, lessContribution, obtainReference_aproxContruction, evaluate
 
 """
 ==================================================================================================================================================================
@@ -69,7 +43,7 @@ def initialize_pop(pop_size):
             "Ns": random.choice(range(1,101)),
             "Np": random.choice(range(1,101)),
         }
-        ind = evaluate(var)
+        ind = evaluate(var, problem)
         pop.append(ind)
 
     return pd.DataFrame(pop)
@@ -77,247 +51,11 @@ def initialize_pop(pop_size):
 
 """
 ==================================================================================================================================================================
-Selection
-==================================================================================================================================================================
-"""
-
-def rouletteSelection(pop: pd.DataFrame):
-    nadir_volume = np.prod(np.array(nadir))
-    probabilities = []
-    for _, ind in pop.iterrows():
-        volume = 0
-        for oFn in oFn_keys:
-            volume *= ind[oFn]
-        for cFn in cFn_keys:
-            volume += ind[cFn]
-        probabilities = np.append(probabilities, nadir_volume - volume)
-
-    probabilities[probabilities<=0] = 1e-6
-    probabilities = probabilities/np.sum(probabilities)
-
-    parents_index = np.random.choice(range(len(pop)), 2, False, p=probabilities)
-
-    return parents_index
-
-"""
-==================================================================================================================================================================
-Sorting
-==================================================================================================================================================================
-"""
-
-def nonDomSort_recursive(F, index):
-  fltr = np.logical_not((F[:, None] <= F).all(axis=2).sum(axis=1) == 1)
-  F_dom = F[fltr]
-  if len(F)==len(F_dom) or len(F_dom)==0:
-    return F, index
-  else:
-    return nonDomSort_recursive(F_dom, index[fltr])
-
-def nonDomSort(Q:pd.DataFrame, ):
-    F = Q[oFn_keys].to_numpy()
-    #F = (F - F.min(axis=0))/(F.max(axis=0)-F.min(axis=0))
-    return nonDomSort_recursive(F, np.arange(len(F)))
-
-"""
-==================================================================================================================================================================
-Mating
-==================================================================================================================================================================
-"""
-
-def SBX(p1,p2,rnd=False):
-    u = np.random.rand()
-    if u <= 0.5:
-        beta = 2*u**(1/31)
-    else:
-        u -= 0.5
-        beta = (1/(1-2*u))**(1/31)
-
-    if random.choice(['+','-']) == '+':
-        c = ((p1+p2) + beta*abs(p2-p1))/2
-    else:
-        c = ((p1+p2) - beta*abs(p2-p1))/2
-
-    if rnd:
-        return round(c)
-    else:
-        return c
-    
-def PM(p,delta,rnd=False):
-    u = np.random.rand()
-    if u <= 0.5:
-        beta = 2*u**(1/21) - 1.935
-    else:
-        beta = 1 - (1-2*(u-0.5))**(1/21)
-
-    c = p + beta * 0.3*delta
-
-    if rnd:
-        return round(c)
-    else:
-        return c
-    
-def repair(var,lmts):
-    #Lower bound
-    if var < lmts[0]:
-        var = 2*lmts[0] - var
-        var = repair(var,lmts)
-    #Upper bound
-    if var > lmts[1]:
-        var = 2*lmts[1] - var
-        var = repair(var,lmts)
-
-    return var
-
-def generate_offspring(Pop: pd.DataFrame):
-
-    parents = rouletteSelection(Pop)
-    parent1 = Pop.iloc[parents[0]]
-    parent2 = Pop.iloc[parents[1]]
-
-    off = {}
-    for var in var_keys:
-
-        p1 = parent1[var]
-        p2 = parent2[var]
-
-        if var == 'mat':
-            c = random.choice([p1,p2])
-            if np.random.rand() < 1/16:
-                c = random.choice(['LCO','LFP'])
-
-        elif var=='Ns' or var=='Np':
-            c = SBX(p1,p2,True)
-            if np.random.rand() < 1/16:
-                c = PM(c,100,True)
-            c = repair(c,[1,100])
-
-        else:
-            lim = limits[var]
-            c = SBX(p1,p2,False)
-            if np.random.rand() < 1/16:
-                c = PM(c,lim[1]-lim[0],False)
-            c = repair(c,lim)
-        
-        off.update({var: c})
-    
-    off = evaluate(off)
-    return pd.DataFrame(off, index=[0])
-
-"""
-==================================================================================================================================================================
-Contribution
-==================================================================================================================================================================
-"""
-def lessContribution(indicator, Rt, ref, indexes):
-    if indicator.name=='HV':
-        ref = np.min(Rt, axis=0)
-    g_contr = indicator(Rt, ref)
-    index = np.argmin(individualContribution(indicator,g_contr,Rt,ref))
-    return indexes[index]
-
-"""
-==================================================================================================================================================================
-Reference
-==================================================================================================================================================================
-"""
-def obtainReference_weightPointSelection(P:pd.DataFrame, presure=5e2):
-
-    ref_dir = get_reference_directions("energy", 4, 40, seed=150)
-    ref_dir = np.where(ref_dir==0, 1e-12, ref_dir)
-
-    f = P[oFn_keys].values
-    c = P[cFn_keys].values
-    c = np.where(c < 0, 0, c)
-
-    ref_pnts = np.empty(len(ref_dir))
-
-    for i in range(len(ref_dir)):
-        ak = f-np.array(np.min(f,axis=0))
-        ak = np.max(ak/ref_dir[i], axis=1)
-        ref_pnts[i] = np.argmin(ak + presure*np.sum(np.square(c), axis=1))
-    
-    ref_pnts = np.unique(ref_pnts).astype(int)
-    ref = f[ref_pnts]
-    ref = ref[(ref[:, None] >= ref).all(axis=2).sum(axis=1) == 1]
-
-    return ref
-
-def achivement(f, f_star, c, e, presure):
-
-    ref = np.empty((len(e),len(f[0])))
-    ref_index = np.empty(len(e))
-
-    for i in range(len(e)):
-
-        ref[i] = f[0]
-        best_max = np.inf
-
-        for h in range(len(f)):
-            maximum = -np.inf
-            for j in range(2):
-                maximum = max(maximum, (f[h][j]-f_star[j])/e[i][j])
-            if (maximum + presure*np.sum(c[h])**2) < best_max:
-                ref[i] = f[h]
-                ref_index[i] = h
-                best_max = maximum
-
-    ref_index = np.unique(ref_index).astype(int)
-
-    return ref, ref_index
-
-def obtain_aprox(ref, ref_dirs, alpha = 1):
-    ak = (((np.sum(ref_dirs**alpha, axis=1))**(1/alpha)).reshape(len(ref_dirs),1))
-    ak = np.where(ak==0, 1e-12, ak)
-    y = ref_dirs/ak
-    return y * (np.max(ref, axis=0) - np.min(ref, axis=0)) + np.min(ref, axis=0)
-
-def n2one_dominates(y, ref):
-    truth = y <= ref
-    return any(np.logical_and(np.logical_and(truth[:,0],truth[:,1]),np.logical_and(truth[:,2],truth[:,3])))
-
-def obtainReference_aproxContruction(P:pd.DataFrame):
-
-    f = P[oFn_keys].values
-    c = P[cFn_keys].values
-    c = np.where(c < 0, 0, c)
-
-    f_star = np.min(f, axis=0)
-
-    p = max_presure
-    index = []
-    while len(index)<len(oFn_keys)+1:
-        ref_pnts, index = achivement(f, f_star, c, e, p)
-        p *= 0.1
-        if p<1:
-            break
-
-    alpha = 1
-    y = obtain_aprox(ref_pnts, ref_dirs, alpha)
-
-    while n2one_dominates(y, ref_pnts[-1]):
-        alpha += 0.05
-        if alpha >= 1e3:
-            break
-        y = obtain_aprox(ref_pnts, ref_dirs, alpha)
-
-    while not(n2one_dominates(y, ref_pnts[-1])):
-        alpha -= 0.05
-        if alpha <= 0:
-            break
-        y = obtain_aprox(ref_pnts, ref_dirs, alpha)
-
-    y = y[np.logical_not(np.isnan(y).any(axis=1))]
-    y = y[np.logical_not(np.isinf(y).any(axis=1))]
-
-    return y
-
-"""
-==================================================================================================================================================================
 Migration
 ==================================================================================================================================================================
 """
 
-def migration(P:pd.DataFrame,n_islands=5,n_mig=1):
+def migration(P:pd.DataFrame,n_islands,n_mig):
     ul = int(len(P)/n_islands)
     p = np.ones((n_islands,n_islands,n_mig),dtype=int)
 
@@ -340,7 +78,7 @@ IBMOEA section
 def IBMOEA(P:pd.DataFrame,I,ref,f_mig,verbose=False):
 
     for g in range(f_mig):
-        q = generate_offspring(P) 
+        q = generate_offspring(P, problem) 
         P = pd.concat([P,q], ignore_index=True)
         Rt, Rt_indexes = nonDomSort(P)
         if len(Rt_indexes) > 1:
@@ -377,18 +115,22 @@ IMIA section
 ==================================================================================================================================================================
 """
 
-def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60_000, verbose=False):
+def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60_000, verbose=False, history_points=2):
     
     n_islands = len(indicators)
     gens = int(np.ceil((f_eval/n_islands)/f_mig))
-    samples = np.linspace(1,gens,15,dtype=int)
+    samples = np.linspace(0,gens,history_points,dtype=int)
     islands = [None]*n_islands
     sub_P = [None]*n_islands
 
     if not(isinstance(P, pd.DataFrame)):
         if verbose:
             print('Initializing population...')
+        start = timeit.default_timer()
         P = initialize_pop(i_pop*n_islands)
+        ref = obtainReference_aproxContruction(P,ref_dirs)
+        end = timeit.default_timer()
+        update_result(P, ref, 0, n_islands*i_pop, end-start, samples)
         
     for g in range(start_gen, gens):
         
@@ -399,7 +141,7 @@ def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60
 
         P = migration(P,n_islands,n_mig)
 
-        ref = obtainReference_aproxContruction(P)
+        ref = obtainReference_aproxContruction(P, ref_dirs)
 
         for i in range(1,n_islands):
             islands[i] = ThreadWithReturnValue(target=IBMOEA, args=(P[i*i_pop:i*i_pop+i_pop],indicators[i],ref,f_mig,verbose))
@@ -429,7 +171,7 @@ def update_result(P:pd.DataFrame, ref, gen, n_eval, time, samples):
     
     P.to_csv(path + expName + f'_pop_{gen}.csv', index=False)
 
-    if np.isin(gen-1, samples, invert=True):
+    if gen > 0 and np.isin(gen-1, samples, invert=True):
         try:
             os.remove(path + expName + f'_pop_{gen-1}.csv')
         except FileNotFoundError:
@@ -441,6 +183,19 @@ def update_result(P:pd.DataFrame, ref, gen, n_eval, time, samples):
     c = np.sum(c, axis=1)
     valid = f[np.where(c==0)]
 
+    if len(valid) > 0:
+        v_HV = ind_HV(valid)
+        v_R2 = ind_R2(valid, ref)
+        v_IGDp = ind_IGDp(valid, ref)
+        v_Ep = ind_Ep(valid, ref)
+        v_Dp = ind_Dp(valid, ref)
+    else:
+        v_HV = '-'
+        v_R2 = '-'
+        v_IGDp = '-'
+        v_Ep = '-'
+        v_Dp = '-'
+
     res = [gen, 
            n_eval, 
            ind_HV(f),
@@ -449,11 +204,11 @@ def update_result(P:pd.DataFrame, ref, gen, n_eval, time, samples):
            ind_Ep(f, ref),
            ind_Dp(f, ref),
            len(valid), 
-           ind_HV(valid),
-           ind_R2(valid, ref),
-           ind_IGDp(valid, ref),
-           ind_Ep(valid, ref),
-           ind_Dp(valid, ref),
+           v_HV,
+           v_R2,
+           v_IGDp,
+           v_Ep,
+           v_Dp,
            np.min(c), 
            np.mean(c), 
            np.max(c), 
@@ -471,68 +226,24 @@ Run section
 ==================================================================================================================================================================
 """
 
-def IMIA_run(pth = "Experiments/IMIA/"):
+def IMIA_run(exp, Vpack, Iapp, i_pop=40, f_mig=40, n_mig=1, f_eval=60_000, verbose=False, h_p=2, pth="Experiments/IMIA/SurrProblem/"):
     
-    global Vpack, Iapp, path, expName, var_keys, oFn_keys, cFn_keys, limits, sampling, e, ref_dirs, ind_HV, ind_R2, ind_IGDp, ind_Ep, ind_Dp
-    
-    path =  pth
+    global path, expName, ref_dirs, ind_HV, ind_R2, ind_IGDp, ind_Ep, ind_Dp, sampling, problem
 
-    var_keys = ['C', 'la', 'lp', 'lo', 'ln', 'lz', 'Lh', 'Rp', 'Rn', 'Rcell', 'efp', 'efo', 'efn', 'mat', 'Ns', 'Np']
-    oFn_keys = ['SpecificEnergy', 'SEIGrouth', 'TempIncrease', 'Price']
-    cFn_keys = ['UpperViolation', 'LowerViolation', 'VolFracViolation']
-
-    limits = np.array([[0.2, 4.0],
-                    [12e-6, 30e-6],
-                    [40e-6, 250e-6],
-                    [10e-6, 100e-6],
-                    [40e-6, 150e-6],
-                    [12e-6, 30e-6],
-                    [40e-3, 100e-3],
-                    [0.2e-6, 20e-6],
-                    [0.5e-6, 50e-6],
-                    [4e-3, 25e-3],
-                    [0.01, 0.6],
-                    [0.01, 0.6],
-                    [0.01, 0.6]])
-
-    sampling = LHS(xlimits=limits)
-
-    limits = {var_keys[i]: limits[i] for i in range(len(limits))}
-
-    e = [[1,      1e-12,  1e-12,  1e-12],
-        [1e-12,  1,      1e-12,  1e-12],
-        [1e-12,  1e-12,  1,      1e-12],
-        [1e-12,  1e-12,  1e-12,  1    ],
-        [0.25,   0.25,   0.25,   0.25 ]]
+    problem = BatteryP2D(Vpack,Iapp)
 
     ref_dirs = get_reference_directions("energy", 4, 40, seed=1)
     ref_dirs = np.where(ref_dirs==0, 1e-12, ref_dirs)
+
+    sampling = LHS(xlimits=limits)
+    
+    path =  pth
 
     ind_HV = HV(ref_point=np.array(nadir))
     ind_R2 = R2()
     ind_IGDp = IGDplus()
     ind_Ep = EpsPlus()
     ind_Dp = DeltaP()
-
-    while True:   
-        app = input("Application required?  EV/DR/CP: ")
-
-        if app == 'EV':
-            Vpack = 48
-            Iapp = -80
-            break
-        elif app == 'DR':
-            Vpack = 15
-            Iapp = -22
-            break
-        elif app == 'CP':
-            Vpack = 3.7
-            Iapp = -3
-            break
-        else:
-            print('Invalid Application, try again!')
-
-    exp = int(input("Experiment number: "))
 
     expName = f'IMIA_V{Vpack}_I{abs(Iapp)}_E{exp}'
     print(expName)
@@ -550,19 +261,16 @@ def IMIA_run(pth = "Experiments/IMIA/"):
                 writer = csv.writer(resf)
                 writer.writerow(["n_Gen", "n_Eval", "g_HV", "g_R2", "g_IGD+", "g_e+", "g_Dp", "n_valid", "v_HV", "v_R2", "v_IGD+", "v_e+", "v_Dp", "min_CV", "mean_CV", "max_CV", "time"])
 
-    if file_found==True:
+    P = None
+    s_gen = 0
+    
+    if file_found:
         s_gen = res['n_Gen'].max()
-        try:
+        if str(s_gen) != 'nan':
             P = pd.read_csv(path + expName + f'_pop_{s_gen}.csv')
-        except FileNotFoundError:
-            P = None
+        else:
             s_gen = 0
-        P = IMIA([SMS(),R2(),IGDplus(),EpsPlus(),DeltaP()], P=P, start_gen=s_gen, verbose=True)
 
-    else:
-        P = IMIA([SMS(),R2(),IGDplus(),EpsPlus(),DeltaP()], verbose=True)
-
+    P = IMIA([SMS(),R2(),IGDplus(),EpsPlus(),DeltaP()], P=P, start_gen=s_gen, i_pop=i_pop, f_mig=f_mig, n_mig=n_mig, f_eval=f_eval, verbose=verbose, history_points=h_p)
     P.to_csv(path + expName + f'_pop_final', index=False)
     print(P)
-
-IMIA_run()
