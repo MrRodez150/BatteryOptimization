@@ -36,7 +36,7 @@ global nadir
 global max_presure
 global var_keys, oFn_keys, cFn_keys, limits, e, refdirs
 
-nadir = [0.0, 5e-15, 20.0, 4e6];
+nadir = [0.0, 5, 20.0, 4e6];
 max_presure = 5e9;
 
 var_keys = ['C', 'la', 'lp', 'lo', 'ln', 'lz', 'Lh', 'Rp', 'Rn', 'Rcell', 'efp', 'efo', 'efn', 'mat', 'Ns', 'Np']

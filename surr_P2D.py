@@ -23,7 +23,7 @@ class BatteryP2D():
             self.V_m = joblib.load(filename = path + f'surr_SVR_{app}_Vcell.joblib', mmap_mode='r')
 
         elif app == '15_22':
-            self.ES_m = joblib.load(filename = path + f'surr_DTR_{app}_SpecificEnergy.joblib', mmap_mode='r')
+            self.ES_m = joblib.load(filename = path + f'surr_RFR_{app}_SpecificEnergy.joblib', mmap_mode='r')
             self.SEI_m = joblib.load(filename = path + f'surr_RFR_{app}_SEIGrouth.joblib', mmap_mode='r')
             self.T_m = joblib.load(filename = path + f'surr_RFR_{app}_TempIncrease.joblib', mmap_mode='r')
             self.V_m = joblib.load(filename = path + f'surr_RFR_{app}_Vcell.joblib', mmap_mode='r')

@@ -106,7 +106,7 @@ def individualContribution(indicator, total_contr, F, pf):
     res = np.zeros(len(F))
     for i in range(len(F)):
         F1 = np.delete(F,i,0)
-        res[i] = total_contr - indicator(F1, pf)
+        res[i] = abs(total_contr - indicator(F1, pf))
 
     return res
         

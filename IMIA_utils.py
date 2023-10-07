@@ -39,7 +39,7 @@ Sorting
 """
 
 def nonDomSort_recursive(F, index):
-  fltr = np.logical_not((F[:, None] <= F).all(axis=2).sum(axis=1) == 1)
+  fltr = np.logical_not((F[:, None] >= F).all(axis=2).sum(axis=1) == 1)
   F_dom = F[fltr]
   if len(F)==len(F_dom) or len(F_dom)==0:
     return F, index
@@ -57,17 +57,27 @@ Selection
 """
 
 def rouletteSelection(pop: pd.DataFrame):
-    nadir_volume = np.prod(np.array(nadir))
+    
     probabilities = []
+    
     for _, ind in pop.iterrows():
-        volume = 0
+        volume = 1
+        volume2 = 1e6
         for oFn in oFn_keys:
-            volume *= ind[oFn]
+            v = ind[oFn]
+            if v < 0:
+                volume /= -v
+            else:
+                volume *= v
         for cFn in cFn_keys:
-            volume += ind[cFn]
-        probabilities = np.append(probabilities, nadir_volume - volume)
+            v = ind[cFn]
+            if v <= 0:
+                v = 1e-6
+            volume2 *= v
+        volume += volume2
+        probabilities = np.append(probabilities, volume)
 
-    probabilities[probabilities<=0] = 1e-6
+    probabilities = np.max(probabilities)*1.1 - probabilities
     probabilities = probabilities/np.sum(probabilities)
 
     parents_index = np.random.choice(range(len(pop)), 2, False, p=probabilities)
@@ -198,6 +208,10 @@ Reference
 
 #     return ref
 
+"""
+=============================================================
+"""
+
 def achivement(f, f_star, c, e, presure):
 
     ref = np.empty((len(e),len(f[0])))
@@ -266,3 +280,32 @@ def obtainReference_aproxContruction(P:pd.DataFrame, ref_dirs):
     y = y[np.logical_not(np.isinf(y).any(axis=1))]
 
     return y
+
+"""
+=============================================================
+"""
+def obtainReference_NonDomValid(P:pd.DataFrame, p_ref=None):
+
+    valid = P[(P[cFn_keys]<=0).all(axis=1)]
+    valid = valid[oFn_keys].values
+    if len(valid)<1:
+        valid = p_ref
+    if isinstance(p_ref, np.ndarray):
+        valid = np.unique(np.append(valid, p_ref, axis=0), axis=0)
+    fltr = ((valid[:, None] >= valid).all(axis=2).sum(axis=1) == 1)
+    ref = valid[fltr]
+    
+    if len(ref) < 1:
+        raise Exception('Reference has no points')
+    
+    return ref
+
+def until_valid(P:pd.DataFrame, problem):
+    n_valid = np.count_nonzero((P[cFn_keys]<=0).all(axis=1))
+    while n_valid < 1:
+        q = generate_offspring(P, problem)
+        i_max = np.argmax((P[cFn_keys]>0).sum(axis=1))
+        P.loc[i_max] = q.loc[0]
+        n_valid = np.count_nonzero((P[cFn_keys]<=0).all(axis=1))
+
+    return P

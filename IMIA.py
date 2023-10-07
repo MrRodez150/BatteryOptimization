@@ -13,7 +13,7 @@ from pymoo.util.ref_dirs import get_reference_directions
 from surr_P2D import BatteryP2D
 from indicators import SMS, R2, IGDplus, EpsPlus, DeltaP
 from settings import nadir, var_keys, oFn_keys, cFn_keys, limits
-from IMIA_utils import generate_offspring, nonDomSort, lessContribution, obtainReference_aproxContruction, evaluate
+from IMIA_utils import generate_offspring, nonDomSort, lessContribution, obtainReference_NonDomValid, evaluate, until_valid
 
 """
 ==================================================================================================================================================================
@@ -80,7 +80,11 @@ def IBMOEA(P:pd.DataFrame,I,ref,f_mig,verbose=False):
     for g in range(f_mig):
         q = generate_offspring(P, problem) 
         P = pd.concat([P,q], ignore_index=True)
-        Rt, Rt_indexes = nonDomSort(P)
+        non_valid = P[(P[cFn_keys]>0).any(axis=1)]
+        if len(non_valid) < 1:
+            Rt, Rt_indexes = nonDomSort(P)
+        else:
+            Rt, Rt_indexes = nonDomSort(non_valid)
         if len(Rt_indexes) > 1:
             r = lessContribution(I,Rt,ref,Rt_indexes)
         else:
@@ -128,7 +132,9 @@ def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60
             print('Initializing population...')
         start = timeit.default_timer()
         P = initialize_pop(i_pop*n_islands)
-        ref = obtainReference_aproxContruction(P,ref_dirs)
+        P = until_valid(P, problem)
+        #ref = obtainReference_aproxContruction(P,ref_dirs)
+        ref = obtainReference_NonDomValid(P)
         end = timeit.default_timer()
         update_result(P, ref, 0, n_islands*i_pop, end-start, samples)
         
@@ -139,9 +145,12 @@ def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60
 
         start = timeit.default_timer()
 
-        P = migration(P,n_islands,n_mig)
-
-        ref = obtainReference_aproxContruction(P, ref_dirs)
+        #ref = obtainReference_aproxContruction(P, ref_dirs)
+        if g == start_gen:
+            P = until_valid(P, problem)
+            ref = obtainReference_NonDomValid(P)
+        else:
+            ref = obtainReference_NonDomValid(P, ref)
 
         for i in range(1,n_islands):
             islands[i] = ThreadWithReturnValue(target=IBMOEA, args=(P[i*i_pop:i*i_pop+i_pop],indicators[i],ref,f_mig,verbose))
@@ -154,6 +163,8 @@ def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60
 
         P = pd.concat(sub_P,ignore_index=True)
         
+        P = migration(P,n_islands,n_mig)
+
         end = timeit.default_timer()
 
         update_result(P, ref, g+1, (g+2)*n_islands*f_mig, end-start, samples)
