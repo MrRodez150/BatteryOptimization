@@ -6,11 +6,11 @@ from batteryBuilder import build_battery
 from auxiliaryExp import area
 
 class BatteryP2D():
-    def __init__(self, V, I, **kwargs):
+    def __init__(self, V, I, path='Experiments/',**kwargs):
     
         self.vars = ['C', 'la', 'lp', 'lo', 'ln', 'lz', 'Lh', 'Rcell', 'Rp', 'Rn', 'efp', 'efo', 'efn', 'mat', 'Ns', 'Np']
         
-        path = 'Experiments/surr/'
+        path = path+'surr/'
         app = f'{V}_{abs(I)}'
 
         self.Vpack = V

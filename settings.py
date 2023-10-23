@@ -30,7 +30,7 @@ global cutOff
 
 tolerance=1e-6;
 maxit=10;
-cutOff = 2.7;
+cutOff = 2.5;
 
 global nadir
 global max_presure

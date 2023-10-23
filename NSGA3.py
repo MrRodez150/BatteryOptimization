@@ -65,12 +65,6 @@ def stepSolver(algorithm, path):
                     xfg_dict.update(dict(zip(constFun, g[i])))
                     writer.writerow(xfg_dict)
 
-    res = ["n_Gen", "n_Eval", "general_HV", "n_validSolutions", "valid_HV", "min_CV", "mean_CV", "max_CV", "time"]
-
-    with open(path + expName + f'_res.csv', 'a') as resf:
-        writer = csv.writer(resf)
-        writer.writerow(res)
-
 
 
 def NSGA3_run(exp, Vpack, Ipack, popul=200, func_eval=60_000, verbose=True, h_p=2, pth="Experiments/"):
@@ -82,7 +76,7 @@ def NSGA3_run(exp, Vpack, Ipack, popul=200, func_eval=60_000, verbose=True, h_p=
     gens = int(func_eval/popul)
     pop_pnts = np.linspace(2, gens, h_p, dtype = "int")
 
-    expName = f'NSGA3/NSGA3_V{Vpack}_I{Ipack}_E{exp}'
+    expName = f'NSGA3/NSGA3_V{Vpack}_I{abs(Ipack)}_E{exp}'
     print(expName)
 
     problem = BatteryP2D_surr(Vpack,Ipack,pth)

@@ -1,8 +1,8 @@
 import random
 import numpy as np
 import pandas as pd
-from indicators import individualContribution
 
+from indicators import individualContribution, RieszEnergy
 from settings import var_keys, oFn_keys, cFn_keys, nadir, max_presure, limits, e
 
 
@@ -209,7 +209,7 @@ Reference
 #     return ref
 
 """
-=============================================================
+===================================================================================================================
 """
 
 def achivement(f, f_star, c, e, presure):
@@ -282,9 +282,11 @@ def obtainReference_aproxContruction(P:pd.DataFrame, ref_dirs):
     return y
 
 """
-=============================================================
+==========================================================================================================================
 """
-def obtainReference_NonDomValid(P:pd.DataFrame, p_ref=None):
+rsze = RieszEnergy()
+
+def obtainReference_NonDomValid(P:pd.DataFrame, pop_size, p_ref=None):
 
     valid = P[(P[cFn_keys]<=0).all(axis=1)]
     valid = valid[oFn_keys].values
@@ -297,6 +299,12 @@ def obtainReference_NonDomValid(P:pd.DataFrame, p_ref=None):
     
     if len(ref) < 1:
         raise Exception('Reference has no points')
+    
+    if len(ref) > pop_size:
+        n_delete = int(len(ref)-pop_size)
+        total_c = rsze(ref)
+        r = np.argsort(individualContribution(rsze,total_c,ref,None))[-n_delete:]
+        ref = np.delete(ref,r,axis=0)
     
     return ref
 

@@ -13,7 +13,7 @@ from pymoo.util.ref_dirs import get_reference_directions
 from surr_P2D import BatteryP2D
 from indicators import SMS, R2, IGDplus, EpsPlus, DeltaP
 from settings import nadir, var_keys, oFn_keys, cFn_keys, limits
-from IMIA_utils import generate_offspring, nonDomSort, lessContribution, obtainReference_NonDomValid, evaluate, until_valid
+from IMIA_utils import generate_offspring, nonDomSort, lessContribution, obtainReference_NonDomValid, obtainReference_aproxContruction, evaluate, until_valid
 
 """
 ==================================================================================================================================================================
@@ -75,27 +75,33 @@ IBMOEA section
 ==================================================================================================================================================================
 """
 
-def IBMOEA(P:pd.DataFrame,I,ref,f_mig,verbose=False):
+def IBMOEA(P:pd.DataFrame,I,ref,ref_mode,f_mig,pop_size,verbose=False):
 
     for g in range(f_mig):
         q = generate_offspring(P, problem) 
         P = pd.concat([P,q], ignore_index=True)
-        non_valid = P[(P[cFn_keys]>0).any(axis=1)]
-        if len(non_valid) < 1:
+        valid = P[(P[cFn_keys]<=0).all(axis=1)]
+        if len(valid) == len(P):
             Rt, Rt_indexes = nonDomSort(P)
+            if len(Rt_indexes) > 1:
+                r = lessContribution(I,Rt,ref,Rt_indexes)
+            else:
+                r = Rt_indexes[0]
         else:
-            Rt, Rt_indexes = nonDomSort(non_valid)
-        if len(Rt_indexes) > 1:
-            r = lessContribution(I,Rt,ref,Rt_indexes)
-        else:
-            r = Rt_indexes[0]
+            r = np.argmax((P[cFn_keys]>0).sum(axis=1))
+
+        if ref_mode == 'RIB':
+            ref = obtainReference_aproxContruction(P,ref_dirs)
+        elif ref_mode == 'NDV':
+            ref = obtainReference_NonDomValid(P, pop_size, ref)
+
         P = P.drop(r).reset_index(drop=True)
 
         if verbose:
             if g%int(f_mig/5)==0 or g+1==f_mig:
                 print(f'\t {I.name}: \t {g+1} / {f_mig}')
 
-    return P
+    return P, ref
 
 
 class ThreadWithReturnValue(Thread):
@@ -119,7 +125,7 @@ IMIA section
 ==================================================================================================================================================================
 """
 
-def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60_000, verbose=False, history_points=2):
+def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60_000, ref_mode='NDV', verbose=False, history_points=0):
     
     n_islands = len(indicators)
     gens = int(np.ceil((f_eval/n_islands)/f_mig))
@@ -128,14 +134,24 @@ def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60
     sub_P = [None]*n_islands
 
     if not(isinstance(P, pd.DataFrame)):
+
         if verbose:
             print('Initializing population...')
+
         start = timeit.default_timer()
+
         P = initialize_pop(i_pop*n_islands)
-        P = until_valid(P, problem)
-        #ref = obtainReference_aproxContruction(P,ref_dirs)
-        ref = obtainReference_NonDomValid(P)
+
+        if ref_mode == 'RIB':
+            ref = obtainReference_aproxContruction(P,ref_dirs)
+        elif ref_mode == 'NDV':
+            P = until_valid(P, problem)
+            ref = obtainReference_NonDomValid(P,  n_islands*i_pop)
+
+        sub_ref = [ref]*n_islands
+
         end = timeit.default_timer()
+
         update_result(P, ref, 0, n_islands*i_pop, end-start, samples)
         
     for g in range(start_gen, gens):
@@ -145,21 +161,22 @@ def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60
 
         start = timeit.default_timer()
 
-        #ref = obtainReference_aproxContruction(P, ref_dirs)
         if g == start_gen:
-            P = until_valid(P, problem)
-            ref = obtainReference_NonDomValid(P)
-        else:
-            ref = obtainReference_NonDomValid(P, ref)
+            if ref_mode == 'RIB':
+                ref = obtainReference_aproxContruction(P,ref_dirs)
+            elif ref_mode == 'NDV':
+                P = until_valid(P, problem)
+                ref = obtainReference_NonDomValid(P, n_islands*i_pop)
+            sub_ref = [ref]*n_islands
 
         for i in range(1,n_islands):
-            islands[i] = ThreadWithReturnValue(target=IBMOEA, args=(P[i*i_pop:i*i_pop+i_pop],indicators[i],ref,f_mig,verbose))
+            islands[i] = ThreadWithReturnValue(target=IBMOEA, args=(P[i*i_pop:i*i_pop+i_pop],indicators[i],sub_ref[i],ref_mode,f_mig,i_pop*n_islands,verbose))
             islands[i].start()
 
-        sub_P[0] = IBMOEA(P[0:i_pop],indicators[0],ref,f_mig,verbose)
+        sub_P[0], sub_ref[0] = IBMOEA(P[0:i_pop],indicators[0],sub_ref[0],ref_mode,f_mig,i_pop*n_islands,verbose)
 
         for i in range(1,n_islands):
-            sub_P[i] = islands[i].join()
+            sub_P[i], sub_ref[i] = islands[i].join()
 
         P = pd.concat(sub_P,ignore_index=True)
         
@@ -168,6 +185,10 @@ def IMIA(indicators, P=None, start_gen=0, i_pop=40, f_mig=40, n_mig=1, f_eval=60
         end = timeit.default_timer()
 
         update_result(P, ref, g+1, (g+2)*n_islands*f_mig, end-start, samples)
+
+    # ref = np.unique(np.append(sub_ref, axis=0), axis=0)
+    # fltr = ((ref[:, None] >= ref).all(axis=2).sum(axis=1) == 1)
+    # ref = ref[fltr]
     
     print('All done!')
 
@@ -193,33 +214,36 @@ def update_result(P:pd.DataFrame, ref, gen, n_eval, time, samples):
     c = np.where(c < 0, 0, c)
     c = np.sum(c, axis=1)
     valid = f[np.where(c==0)]
+    fltr = ((valid[:, None] >= valid).all(axis=2).sum(axis=1) == 1)
+    n_nds = valid[fltr]
 
     if len(valid) > 0:
         v_HV = ind_HV(valid)
-        v_R2 = ind_R2(valid, ref)
-        v_IGDp = ind_IGDp(valid, ref)
-        v_Ep = ind_Ep(valid, ref)
-        v_Dp = ind_Dp(valid, ref)
+        # v_R2 = ind_R2(valid, ref)
+        # v_IGDp = ind_IGDp(valid, ref)
+        # v_Ep = ind_Ep(valid, ref)
+        # v_Dp = ind_Dp(valid, ref)
     else:
-        v_HV = '-'
-        v_R2 = '-'
-        v_IGDp = '-'
-        v_Ep = '-'
-        v_Dp = '-'
+        v_HV = 0
+        # v_R2 = '-'
+        # v_IGDp = '-'
+        # v_Ep = '-'
+        # v_Dp = '-'
 
     res = [gen, 
            n_eval, 
            ind_HV(f),
-           ind_R2(f, ref),
-           ind_IGDp(f, ref),
-           ind_Ep(f, ref),
-           ind_Dp(f, ref),
-           len(valid), 
+        #    ind_R2(f, ref),
+        #    ind_IGDp(f, ref),
+        #    ind_Ep(f, ref),
+        #    ind_Dp(f, ref),
+           len(valid),
+           len(n_nds), 
            v_HV,
-           v_R2,
-           v_IGDp,
-           v_Ep,
-           v_Dp,
+        #    v_R2,
+        #    v_IGDp,
+        #    v_Ep,
+        #    v_Dp,
            np.min(c), 
            np.mean(c), 
            np.max(c), 
@@ -237,18 +261,18 @@ Run section
 ==================================================================================================================================================================
 """
 
-def IMIA_run(exp, Vpack, Iapp, i_pop=40, f_mig=40, n_mig=1, f_eval=60_000, verbose=False, h_p=2, pth="Experiments/IMIA/SurrProblem/"):
+def IMIA_run(exp, Vpack, Iapp, i_pop=40, f_mig=40, n_mig=1, f_eval=60_000, ref_mode='NDV', verbose=False, h_p=2, pth="Experiments/"):
     
     global path, expName, ref_dirs, ind_HV, ind_R2, ind_IGDp, ind_Ep, ind_Dp, sampling, problem
 
-    problem = BatteryP2D(Vpack,Iapp)
+    path =  pth+'IMIA/SurrProblem/'
 
-    ref_dirs = get_reference_directions("energy", 4, 40, seed=1)
+    problem = BatteryP2D(Vpack,Iapp,pth)
+
+    ref_dirs = get_reference_directions("energy", 4, 20, seed=1)
     ref_dirs = np.where(ref_dirs==0, 1e-12, ref_dirs)
 
     sampling = LHS(xlimits=limits)
-    
-    path =  pth
 
     ind_HV = HV(ref_point=np.array(nadir))
     ind_R2 = R2()
@@ -256,7 +280,7 @@ def IMIA_run(exp, Vpack, Iapp, i_pop=40, f_mig=40, n_mig=1, f_eval=60_000, verbo
     ind_Ep = EpsPlus()
     ind_Dp = DeltaP()
 
-    expName = f'IMIA_V{Vpack}_I{abs(Iapp)}_E{exp}'
+    expName = f'IMIA_V{Vpack}_I{abs(Iapp)}_{ref_mode}_E{exp}'
     print(expName)
 
     file_found=False
@@ -270,7 +294,8 @@ def IMIA_run(exp, Vpack, Iapp, i_pop=40, f_mig=40, n_mig=1, f_eval=60_000, verbo
         print('No checkpoint found, starting over')
         with open(path + expName + '_res.csv', 'a') as resf:
                 writer = csv.writer(resf)
-                writer.writerow(["n_Gen", "n_Eval", "g_HV", "g_R2", "g_IGD+", "g_e+", "g_Dp", "n_valid", "v_HV", "v_R2", "v_IGD+", "v_e+", "v_Dp", "min_CV", "mean_CV", "max_CV", "time"])
+                # writer.writerow(["n_Gen", "n_Eval", "g_HV", "g_R2", "g_IGD+", "g_e+", "g_Dp", "n_valid", "n_nds", "v_HV", "v_R2", "v_IGD+", "v_e+", "v_Dp", "min_CV", "mean_CV", "max_CV", "time"])
+                writer.writerow(["n_Gen", "n_Eval", "g_HV",  "n_valid", "n_nds", "v_HV", "min_CV", "mean_CV", "max_CV", "time"])
 
     P = None
     s_gen = 0
@@ -282,6 +307,6 @@ def IMIA_run(exp, Vpack, Iapp, i_pop=40, f_mig=40, n_mig=1, f_eval=60_000, verbo
         else:
             s_gen = 0
 
-    P = IMIA([SMS(),R2(),IGDplus(),EpsPlus(),DeltaP()], P=P, start_gen=s_gen, i_pop=i_pop, f_mig=f_mig, n_mig=n_mig, f_eval=f_eval, verbose=verbose, history_points=h_p)
+    P = IMIA([SMS(),R2(),IGDplus(),EpsPlus(),DeltaP()], P=P, start_gen=s_gen, i_pop=i_pop, f_mig=f_mig, n_mig=n_mig, f_eval=f_eval, ref_mode=ref_mode, verbose=verbose, history_points=h_p)
     P.to_csv(path + expName + f'_pop_final', index=False)
-    print(P)
+    # print(P)

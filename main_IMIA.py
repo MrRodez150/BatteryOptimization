@@ -1,23 +1,21 @@
 from IMIA import IMIA_run
 
-# while True:   
-#     app = input("Application required?  EV/DR/CP: ")
+app = input('App (EV/DR/CP): ') 
+mode = input('Mode (RIB/NDV): ') 
+for e in range(30):
 
-#     if app == 'EV':
-#         Vpack = 48
-#         Iapp = -80
-#         break
-#     elif app == 'DR':
-#         Vpack = 15
-#         Iapp = -22
-#         break
-#     elif app == 'CP':
-#         Vpack = 3.7
-#         Iapp = -3
-#         break
-#     else:
-#         print('Invalid Application, try again!')
+    if app == 'EV':
+        V = 48
+        I = -80
+    elif app == 'DR':
+        V = 15
+        I = -22
+    elif app == 'CP':
+        V = 3.7
+        I = -3
+    else:
+        raise ValueError('Application not defined')
 
-# exp = int(input("Experiment number: "))
-
-IMIA_run(exp=150, Vpack=3.7, Iapp=-3, i_pop=40, f_mig=40, n_mig=1, f_eval=6_000, verbose=True, h_p=2)
+    IMIA_run(exp=e, Vpack=V, Iapp=I, 
+            i_pop=40, f_mig=40, n_mig=1, f_eval=4_000, ref_mode=mode, 
+            verbose=True, h_p=0, pth='Experiments/')

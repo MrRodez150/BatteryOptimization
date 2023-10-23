@@ -112,7 +112,7 @@ def individualContribution(indicator, total_contr, F, pf):
         
 class RieszEnergy():
 
-    def __call__(self, F):
+    def __call__(self, F, pf=None):
         return self._do(F)
 
     def _do(self, F):
