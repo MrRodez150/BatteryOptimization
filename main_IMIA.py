@@ -19,3 +19,6 @@ for e in range(30):
     IMIA_run(exp=e, Vpack=V, Iapp=I, 
             i_pop=40, f_mig=40, n_mig=1, f_eval=4_000, ref_mode=mode, 
             verbose=True, h_p=0, pth='Experiments/')
+    
+    #Inicialización de cambios
+    
